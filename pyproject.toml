@@ -1,0 +1,16 @@
+[project]
+name = "modelwerk"
+version = "0.1.0"
+description = "Neural networks from scratch, SICP-style — from scalar ops to transformers"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = ["matplotlib", "pytest"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/modelwerk"]
