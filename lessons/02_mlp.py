@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 
 def train_mlp_on_xor():
     """
-    "Train an MLP on XOR, the problem the perceptron couldn't solve.
+    Train an MLP on XOR, the problem the perceptron couldn't solve.
     """
 
     print(f"\n{'='*60}")
@@ -47,7 +47,7 @@ input and output. Here's a network with two hidden neurons:
      x₂  o ─ w₂₂ ─┘    + b₂
 
 Each hidden neuron receives both inputs through its own weights,
-adds a bias, and passes the result through sigmoid. The output
+adds a bias, and passes the result through sigmoid (written σ). The output
 neuron combines the hidden outputs the same way.
 
 For the input → hidden connections:
@@ -187,7 +187,7 @@ def train_mlp_on_circles():
     print("""
 XOR has only 4 points. Let's try something harder: two concentric
 circles. Points near the center are class 1, points on the outer
-ring are class 0. No straight line can separate inside from outsid,  
+ring are class 0. No straight line can separate inside from outside,
 you need a curved boundary, which is what the hidden layer learns.
 """)
 
@@ -271,15 +271,18 @@ Backpropagation just applies this rule repeatedly, layer by layer:
 For each layer:
 
   δ = dL/da ⊙ σ'(z)        (⊙ = element-wise multiply: scale each neuron's blame by its slope)
-  dL/dW = outer(δ, input)   (which weights to blame)
+  dL/dW = outer(δ, input)   (outer product: multiply every pair to get a matrix of weight gradients)
   dL/da_prev = Wᵀ @ δ       (pass the blame backwards)
 
 Let's trace this concretely through our 2-hidden-neuron XOR network.
 Same variables as the forward pass: w₁₁, w₂₁, w₁₂, w₂₂, v₁, v₂,
 b₁, b₂, b₃, h₁, h₂, y.
 
-Start at the loss. We used MSE = (y - target)², and its derivative
-with respect to y is 2 * (y - target):
+Start at the loss. We used MSE — Mean Squared Error — which measures
+how far off a prediction is by squaring the difference:
+MSE = (y - target)². Squaring means bigger mistakes are penalized
+more than small ones. Its derivative with respect to y is
+2 * (y - target):
 
   dL/dy = 2 * (y - target)
 
@@ -354,8 +357,8 @@ Let's see it solve XOR.
 
     print("""
 The perceptron had one neuron and one straight line. The MLP has
-layers and curves. But the real breakthrough isn't the architecture,
- it's the learning algorithm.
+layers and curves. But the real breakthrough isn't the architecture —
+it's the learning algorithm.
 
 The perceptron learning rule was direct: if wrong, nudge the weights.
 But it only works for one layer. There's no way to tell a hidden
