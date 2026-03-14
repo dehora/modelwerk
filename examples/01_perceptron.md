@@ -274,9 +274,14 @@ This limitation was famously highlighted by Minsky & Papert in 1969,
 contributing to the first "AI winter." The solution — multiple layers
 of neurons (the MLP) — would come later, which we'll see in Lesson 2.
 
-You can see the results graphically as well in:
-  - .examples/01_perceptron_boundaries.png
-
 ============================================================
   END OF LESSON 1
 ============================================================
+
+## Plots
+
+### Decision Boundaries
+
+All four logic gates plotted together — AND, OR, NAND, and XOR. The first three show clean linear separations: a single straight line divides the true and false regions. XOR's plot shows the failure: both classes end up on the same side of the line, no matter where the perceptron draws it. This is the visual proof that a single neuron can't solve problems that aren't linearly separable.
+
+![Decision boundaries for AND, OR, NAND, and XOR](01_perceptron_boundaries.png)

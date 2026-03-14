@@ -323,10 +323,20 @@ Next up: convolutional networks (Lesson 3), where we'll see how
 to exploit the structure of images instead of treating every pixel
 as an independent input.
 
-Plots saved to:
-  - .examples/02_mlp_xor.png
-  - .examples/02_mlp_circles.png
-
 ============================================================
   END OF LESSON 2
 ============================================================
+
+## Plots
+
+### XOR Decision Boundary
+
+The MLP carves a curved boundary through the input space, isolating the two "true" corners (top-left, bottom-right) from the two "false" corners. Compare this to the perceptron's single straight line in Lesson 1 — the hidden layer learned to warp the space so that XOR becomes separable.
+
+![XOR decision boundary learned by the MLP](02_mlp_xor.png)
+
+### Concentric Circles Decision Boundary
+
+A harder test: 80 points arranged in two concentric rings. The MLP learns a closed, roughly circular boundary separating the inner class from the outer class. No single line (or even two lines) could do this — the hidden layer transforms the radial distance into a feature the output neuron can threshold.
+
+![Concentric circles decision boundary](02_mlp_circles.png)
