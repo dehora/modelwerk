@@ -2,15 +2,17 @@
 
 Neural networks from scratch, built piece by piece from scalar operations up to complete architectures. Pure Python, no frameworks — just `math` and lists.
 
+This is for programmers who want to understand how neural networks work, not use them. If you're looking for a PyTorch tutorial, this isn't it. If you want to know what PyTorch is doing under the hood, read on.
+
 The project follows five landmark papers chronologically, each one building on the previous lesson's code and concepts:
 
-| Lesson | Paper | Year | Network | Status |
-|--------|-------|------|---------|--------|
-| 01 | Rosenblatt, "The Perceptron" | 1958 | Single-layer perceptron | Done |
-| 02 | Rumelhart, Hinton & Williams, "Learning representations by back-propagating errors" | 1986 | Multi-layer perceptron | Done |
-| 03 | LeCun et al., "Gradient-based learning applied to document recognition" | 1998 | LeNet-5 (CNN) | Planned |
-| 04 | Vaswani et al., "Attention Is All You Need" | 2017 | Transformer | Planned |
-| 05 | Darlow et al., "Continuous Thought Machines" | 2025 | CTM | Planned |
+| Lesson | Paper | Year | Network | Time | Status |
+|--------|-------|------|---------|------|--------|
+| 01 | Rosenblatt, "The Perceptron" | 1958 | Single-layer perceptron | ~5s | Done |
+| 02 | Rumelhart, Hinton & Williams, "Learning representations by back-propagating errors" | 1986 | Multi-layer perceptron | ~10s | Done |
+| 03 | LeCun et al., "Gradient-based learning applied to document recognition" | 1998 | LeNet-5 (CNN) | ~3 min | Done |
+| 04 | Vaswani et al., "Attention Is All You Need" | 2017 | Transformer | ~5 min | Done |
+| 05 | Darlow et al., "Continuous Thought Machines" | 2025 | CTM | — | Planned |
 
 ## Why
 
@@ -42,11 +44,23 @@ uv run python lessons/02_mlp.py
 
 ### Lesson 3: LeNet-5 (1998)
 
-*Coming soon.* Convolutional neural networks — learning spatial features directly from pixel data, with weight sharing and pooling.
+LeCun et al. introduced convolutional neural networks — learning spatial features directly from pixel data. The lesson trains LeNet-5 on MNIST handwritten digits, reaching ~90% accuracy with weight sharing and pooling.
+
+**Concepts introduced:** convolution, feature maps, receptive fields, pooling, weight sharing, spatial hierarchy, softmax + cross-entropy.
+
+```
+uv run python lessons/03_lenet5.py
+```
 
 ### Lesson 4: The Transformer (2017)
 
-*Coming soon.* Self-attention as a replacement for recurrence — the architecture behind modern large language models.
+Vaswani et al. replaced recurrence with self-attention — each position directly looks at every other position and learns what's relevant. The lesson trains a decoder-only transformer on Shakespeare sonnets, generating character-level text.
+
+**Concepts introduced:** self-attention (Q/K/V), causal masking, multi-head attention, positional encoding, residual connections, layer normalization, autoregressive generation.
+
+```
+uv run python lessons/04_transformer.py
+```
 
 ### Lesson 5: The Continuous Thought Machine (2025)
 
@@ -58,14 +72,18 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 # Run a lesson
-uv run python lessons/01_perceptron.py
-uv run python lessons/02_mlp.py
+uv run python lessons/01_perceptron.py    # ~5 seconds
+uv run python lessons/02_mlp.py           # ~10 seconds
+uv run python lessons/03_lenet5.py        # ~3 minutes
+uv run python lessons/04_transformer.py   # ~5 minutes
 
 # Run tests
 uv run pytest tests/
 ```
 
-Lessons print narrative text, training output, and ASCII decision boundaries to the terminal. Matplotlib plots are saved to `output/`.
+Lessons 1 and 2 run in seconds. Lessons 3 and 4 take a few minutes — this is pure Python doing real training, not a demo. If it seems hung, it's not — the progress bar shows where you are.
+
+Lessons print narrative text, training output, and decision boundaries to the terminal. Matplotlib plots are saved to `output/`. Reference outputs from completed runs are in `examples/` so you can see results without running the code.
 
 ## Project structure
 
@@ -75,7 +93,7 @@ src/modelwerk/
     scalar.py           Addition, multiplication, exp, log — the atoms
     vector.py           Dot product, element-wise ops, norms
     matrix.py           Matrix multiply, transpose, outer product
-    activations.py      Step, sigmoid, tanh, ReLU, softmax + derivatives
+    activations.py      Step, sigmoid, tanh, ReLU, softmax, layer norm + derivatives
     losses.py           MSE, cross-entropy + derivatives
     random.py           Seeded RNG for reproducibility
 
@@ -108,6 +126,7 @@ src/modelwerk/
     attention_maps.py   Attention pattern visualization
 
 lessons/              Runnable scripts — one per paper
+examples/             Reference outputs (plots, screenshots) from completed runs
 tests/                Unit tests for primitives, building blocks, and models
 ```
 
