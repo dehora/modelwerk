@@ -263,6 +263,112 @@ Let's see it learn Shakespeare, one character at a time.
 
   Training (this takes a few minutes in pure Python)...
 
+  Training: epoch 30/30  loss=1.3932  [██████████████████████████████] 100%
+
+  Training results:
+    Epoch   1: loss=3.0421
+    Epoch   7: loss=1.9360
+    Epoch  13: loss=1.6598
+    Epoch  19: loss=1.5132
+    Epoch  25: loss=1.4474
+    Epoch  30: loss=1.3932
+
+  Sample predictions (input -> predicted next char):
+    "...are thee to a summer" -> ' '  (expected "'")
+    "...
+When, in disgrace w" -> 'i'  (correct)
+    "...ings.
+
+That time of " -> 'i'  (expected 'y')
+
+============================================================
+  PART 4: GENERATION
+============================================================
+
+  Prompt: "Shall I compare"
+  Generating 100 characters...
+
+  Generated text:
+  ┌────────────────────────────────────────────────────────┐
+  │ Shall I compareeeee s dothin thou ghalkinds aan shea,  │
+  │ wit wit byes aaas I sheave mis shathe mire shalke mise │
+  │  ashe i                                                │
+  └────────────────────────────────────────────────────────┘
+
+  The output won't be coherent Shakespeare — this is a tiny model
+  trained on ~1.8KB of text. But you should see it learning character-
+  level patterns: common letter sequences, spacing, punctuation,
+  and fragments of words from the sonnets.
+
+  Training plot saved to ./output/04_transformer_training.png
+  Attention map saved to ./output/04_transformer_attention.png
+
+============================================================
+  WHAT CHANGED
+============================================================
+
+The CNN looked through a fixed 5x5 window — a local, static
+receptive field. The transformer learns which positions to attend
+to, with the pattern changing based on input. This is the key
+shift: from fixed spatial structure to dynamic, data-dependent
+context.
+
+What attention gives us:
+
+  Global receptive field: every position can attend to every other
+  position in a single layer. The CNN needed stacked layers to
+  grow its receptive field.
+
+  Interpretability: attention weights show what the model focuses
+  on. In the heatmap above, brighter cells show stronger attention.
+  You can see which characters the model considered when predicting
+  the next one. CNNs and MLPs don't have such transparent internal
+  states.
+
+  Parallelism: unlike RNNs, attention processes all positions
+  simultaneously. No sequential bottleneck. This is why transformers
+  train efficiently on GPUs — and why they scaled to billions of
+  parameters while RNNs did not.
+
+The cost: attention computes a score for every pair of positions,
+giving O(n^2) complexity in sequence length. For our 32-character
+sequences, that's a 32x32 = 1,024-entry attention matrix. For
+GPT-4's ~128,000-token context, that would be ~16 billion entries
+per layer per head. The same quadratic cost that makes attention
+powerful also makes it expensive — this is why techniques like
+sliding window attention, sparse attention, and linear attention
+are active research areas.
+
+Backpropagation still works — same chain rule from Lesson 2.
+The forward pass has more steps than LeNet, but each step uses
+primitives you've seen: dense layers, softmax, addition. The
+backward pass is where the complexity shows up — gradients flowing
+through residual connections split into two paths (one through the
+sublayer, one through the skip connection), and the softmax backward
+involves all outputs simultaneously rather than independently. If
+the backward code is hard to follow, focus on the forward pass and
+treat the backward as "the chain rule applied to each step, working
+right to left." The softmax + cross-entropy gradient simplification
+(probs - target) that we used in Lesson 3 works here too.
+
+The original paper used this architecture for machine translation
+(encoder-decoder). Modern LLMs (GPT, Claude) use decoder-only
+variants like the one here, scaled up enormously: billions of
+parameters, terabytes of text, thousands of GPUs.
+
+Our 11,408-parameter model on 4 sonnets is the same
+algorithm. The difference is scale.
+
+Next: we've now built a perceptron, an MLP, a CNN, and a transformer
+— each one introduced a new architectural idea. In Lesson 5 we'll
+step back and look at the training process itself: how modern
+optimizers, regularization, and scaling techniques turn these
+building blocks into systems that actually work at scale.
+
+============================================================
+  END OF LESSON 4
+============================================================  
+
 ## Plots
 
 ### Training Loss Curve
