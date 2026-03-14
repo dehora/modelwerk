@@ -2,7 +2,7 @@
 
 Neural networks from scratch, built piece by piece from scalar operations up to complete architectures. Pure Python, no frameworks — just `math` and lists.
 
-The project follows four landmark papers chronologically, each one building on the previous lesson's code and concepts:
+The project follows five landmark papers chronologically, each one building on the previous lesson's code and concepts:
 
 | Lesson | Paper | Year | Network | Status |
 |--------|-------|------|---------|--------|
@@ -10,6 +10,7 @@ The project follows four landmark papers chronologically, each one building on t
 | 02 | Rumelhart, Hinton & Williams, "Learning representations by back-propagating errors" | 1986 | Multi-layer perceptron | Done |
 | 03 | LeCun et al., "Gradient-based learning applied to document recognition" | 1998 | LeNet-5 (CNN) | Planned |
 | 04 | Vaswani et al., "Attention Is All You Need" | 2017 | Transformer | Planned |
+| 05 | Darlow et al., "Continuous Thought Machines" | 2025 | CTM | Planned |
 
 ## Why
 
@@ -46,6 +47,10 @@ uv run python lessons/02_mlp.py
 ### Lesson 4: The Transformer (2017)
 
 *Coming soon.* Self-attention as a replacement for recurrence — the architecture behind modern large language models.
+
+### Lesson 5: The Continuous Thought Machine (2025)
+
+*Coming soon.* Darlow et al. reintroduce neural timing as a core computational principle. The CTM gives each neuron its own temporal dynamics via neuron-level models (NLMs) with private weights, and uses neural synchronization — temporal correlations between neurons — as the latent representation. Unlike static feedforward or fixed-step recurrent networks, the CTM iterates over an internal time dimension, refining representations across "thought steps" and naturally exhibiting adaptive compute (stopping early on simple inputs, thinking longer on hard ones).
 
 ## Running
 
