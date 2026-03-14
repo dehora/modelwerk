@@ -110,6 +110,8 @@ def scaled_dot_product_attention(
 
 def create_multi_head_attention(rng, d_model: int, num_heads: int) -> MultiHeadAttentionLayer:
     """Create a multi-head attention layer."""
+    if d_model % num_heads != 0:
+        raise ValueError(f"d_model ({d_model}) must be divisible by num_heads ({num_heads})")
     d_k = d_model // num_heads
     W_q = xavier_init(rng, d_model, d_model)
     W_k = xavier_init(rng, d_model, d_model)

@@ -386,9 +386,10 @@ Let's see it learn Shakespeare, one character at a time.
     print(f'\n  Prompt: "{prompt}"')
     print(f"  Generating 100 characters...\n")
 
+    gen_rng = create_rng(123)
     generated_text, last_attn_weights = generate(
         model, prompt_ids, length=100, id_to_char=id_to_char,
-        temperature=0.8,
+        temperature=0.8, rng=gen_rng,
     )
 
     print(f"  Generated text:")

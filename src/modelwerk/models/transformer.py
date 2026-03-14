@@ -353,9 +353,12 @@ def predict(model: TransformerLM, token_ids: list[int]) -> list[int]:
 def generate(
     model: TransformerLM, prompt_ids: list[int],
     length: int, id_to_char: dict[int, str],
-    temperature: float = 0.8,
+    temperature: float = 0.8, rng=None,
 ) -> tuple[str, list[Matrix]]:
     """Generate text autoregressively from a prompt.
+
+    temperature controls randomness: < 1 sharpens, > 1 flattens.
+    rng: if provided, sample from the distribution; otherwise greedy argmax.
 
     Returns (generated_text, attention_weights_from_last_step).
     """
@@ -376,8 +379,19 @@ def generate(
             logits = [scalar.log(max(p, 1e-10)) / temperature for p in last_probs]
             last_probs = softmax(logits)
 
-        # Argmax: pick the most probable token
-        next_token = max(range(len(last_probs)), key=lambda i: last_probs[i])
+        if rng is not None:
+            # Sample from the distribution: pick a token weighted by probability
+            r = rng.random()
+            cumulative = 0.0
+            next_token = len(last_probs) - 1
+            for i, p in enumerate(last_probs):
+                cumulative += p
+                if r < cumulative:
+                    next_token = i
+                    break
+        else:
+            # Greedy: pick the most probable token
+            next_token = max(range(len(last_probs)), key=lambda i: last_probs[i])
         generated.append(next_token)
 
     text = "".join(id_to_char[tid] for tid in generated)
