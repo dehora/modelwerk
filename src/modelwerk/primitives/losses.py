@@ -4,3 +4,31 @@ Measure how far predictions are from targets — MSE, cross-entropy.
 Each includes its derivative for backprop.
 Built from scalar and vector operations.
 """
+
+from modelwerk.primitives import scalar, vector
+
+Vector = list[float]
+
+
+def mse(predicted: Vector, actual: Vector) -> float:
+    diffs = vector.subtract(predicted, actual)
+    squared = [scalar.multiply(d, d) for d in diffs]
+    return scalar.multiply(vector.sum_all(squared), scalar.inverse(len(squared)))
+
+
+def mse_derivative(predicted: Vector, actual: Vector) -> Vector:
+    n = len(predicted)
+    factor = 2.0 / n
+    return [scalar.multiply(factor, scalar.subtract(p, a))
+            for p, a in zip(predicted, actual)]
+
+
+def cross_entropy(predicted: Vector, actual: Vector) -> float:
+    terms = [scalar.multiply(a, scalar.log(p))
+             for p, a in zip(predicted, actual)]
+    return scalar.negate(vector.sum_all(terms))
+
+
+def cross_entropy_derivative(predicted: Vector, actual: Vector) -> Vector:
+    return [scalar.negate(scalar.multiply(a, scalar.inverse(p)))
+            for p, a in zip(predicted, actual)]

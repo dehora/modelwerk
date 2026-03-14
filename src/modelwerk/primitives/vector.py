@@ -3,3 +3,61 @@
 Operations on lists of floats — dot products, element-wise ops,
 scaling. Built from scalar operations.
 """
+
+from modelwerk.primitives import scalar
+
+Vector = list[float]
+
+
+def dot(a: Vector, b: Vector) -> float:
+    result = 0.0
+    for i in range(len(a)):
+        result = scalar.add(result, scalar.multiply(a[i], b[i]))
+    return result
+
+
+def add(a: Vector, b: Vector) -> Vector:
+    return [scalar.add(a[i], b[i]) for i in range(len(a))]
+
+
+def subtract(a: Vector, b: Vector) -> Vector:
+    return [scalar.subtract(a[i], b[i]) for i in range(len(a))]
+
+
+def scale(c: float, v: Vector) -> Vector:
+    return [scalar.multiply(c, x) for x in v]
+
+
+def elementwise(f, a: Vector, b: Vector) -> Vector:
+    return [f(a[i], b[i]) for i in range(len(a))]
+
+
+def apply(f, v: Vector) -> Vector:
+    return [f(x) for x in v]
+
+
+def magnitude(v: Vector) -> float:
+    return scalar.power(dot(v, v), 0.5)
+
+
+def zeros(n: int) -> Vector:
+    return [0.0] * n
+
+
+def ones(n: int) -> Vector:
+    return [1.0] * n
+
+
+def sum_all(v: Vector) -> float:
+    result = 0.0
+    for x in v:
+        result = scalar.add(result, x)
+    return result
+
+
+def max_val(v: Vector) -> float:
+    result = v[0]
+    for x in v[1:]:
+        if x > result:
+            result = x
+    return result
