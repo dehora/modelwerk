@@ -49,6 +49,16 @@ def relu_derivative(x: float) -> float:
     return 1.0 if x > 0 else 0.0
 
 
+def identity(x: float) -> float:
+    """Pass-through activation — no transformation."""
+    return x
+
+
+def identity_derivative(x: float) -> float:
+    """Derivative of identity: always 1."""
+    return 1.0
+
+
 def softmax(v: Vector) -> Vector:
     """Convert a vector of scores into probabilities that sum to 1."""
     m = vector.max_val(v)

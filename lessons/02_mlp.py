@@ -116,6 +116,9 @@ take hours or days to train.
     # Train — note the higher learning rate vs lesson 1 (lr=0.1). MLPs with
     # sigmoid activations need larger steps because sigmoid squashes gradients
     # into a narrow range, making each individual update small.
+    # lr=2.0 works here because XOR has only 4 data points. On real datasets
+    # typical learning rates are 0.001–0.1; lr=2.0 would cause the loss to
+    # explode. We'll see this in Lesson 3 where lr drops to 0.01.
     learning_rate = 2.0
     epochs = 3000
     print(f"\n  Training: lr={learning_rate}, epochs={epochs}")

@@ -51,3 +51,35 @@ def flatten(M: Matrix) -> Vector:
 
 def reshape(v: Vector, rows: int, cols: int) -> Matrix:
     return [v[r * cols:(r + 1) * cols] for r in range(rows)]
+
+
+# --- 3D tensor operations (channels × height × width) ---
+
+Tensor3D = list[list[list[float]]]
+
+
+def tensor3d_zeros(channels: int, height: int, width: int) -> Tensor3D:
+    """Create a zero-filled 3D tensor."""
+    return [[[0.0] * width for _ in range(height)] for _ in range(channels)]
+
+
+def tensor3d_flatten(t: Tensor3D) -> Vector:
+    """Flatten a 3D tensor (C × H × W) into a 1D vector."""
+    result: Vector = []
+    for channel in t:
+        for row in channel:
+            result.extend(row)
+    return result
+
+
+def tensor3d_reshape(v: Vector, channels: int, height: int, width: int) -> Tensor3D:
+    """Reshape a vector back into a 3D tensor (C × H × W)."""
+    t: Tensor3D = []
+    idx = 0
+    for _ in range(channels):
+        channel = []
+        for _ in range(height):
+            channel.append(v[idx:idx + width])
+            idx += width
+        t.append(channel)
+    return t

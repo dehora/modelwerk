@@ -1,13 +1,16 @@
-"""Tests for building blocks (neuron, layers, network, gradients)."""
+"""Tests for building blocks (neuron, layers, network, gradients, conv, pool)."""
 
-from modelwerk.primitives.activations import step, sigmoid, relu
+from modelwerk.primitives.activations import step, sigmoid, relu, tanh_
 from modelwerk.primitives.losses import mse
 from modelwerk.primitives.random import create_rng
+from modelwerk.primitives.matrix import tensor3d_zeros
 from modelwerk.building_blocks.neuron import Neuron, create_neuron, forward
 from modelwerk.building_blocks.dense import DenseLayer, create_dense, dense_forward
 from modelwerk.building_blocks.network import create_network, network_forward
 from modelwerk.building_blocks.grad import backward, numerical_gradient_check
 from modelwerk.building_blocks.optimizers import sgd_update
+from modelwerk.building_blocks.conv import create_conv, conv_forward, conv_backward, ConvLayer
+from modelwerk.building_blocks.pool import avg_pool_forward, avg_pool_backward
 
 
 class TestNeuron:
@@ -183,3 +186,103 @@ class TestOptimizers:
         out2, _ = network_forward(net, inputs)
         loss2 = mse(out2, targets)
         assert loss2 < loss1
+
+
+class TestConvLayer:
+    def test_create_conv_shape(self):
+        rng = create_rng(42)
+        layer = create_conv(rng, 1, 2, kernel_size=3)
+        assert len(layer.filters) == 2
+        assert len(layer.filters[0]) == 1
+        assert len(layer.filters[0][0]) == 3
+        assert len(layer.filters[0][0][0]) == 3
+        assert len(layer.biases) == 2
+
+    def test_conv_forward_output_shape(self):
+        rng = create_rng(42)
+        layer = create_conv(rng, 1, 2, kernel_size=3)
+        inp = tensor3d_zeros(1, 5, 5)
+        out, cache = conv_forward(layer, inp, tanh_)
+        assert len(out) == 2
+        assert len(out[0]) == 3
+        assert len(out[0][0]) == 3
+
+    def test_conv_forward_5x5_kernel(self):
+        """5x5 kernel on 7x7 input gives 3x3 output."""
+        rng = create_rng(42)
+        layer = create_conv(rng, 1, 1, kernel_size=5)
+        inp = tensor3d_zeros(1, 7, 7)
+        out, _ = conv_forward(layer, inp, tanh_)
+        assert len(out[0]) == 3
+        assert len(out[0][0]) == 3
+
+    def test_conv_backward_shapes(self):
+        rng = create_rng(42)
+        layer = create_conv(rng, 1, 2, kernel_size=3)
+        inp = tensor3d_zeros(1, 5, 5)
+        inp[0][2][2] = 1.0
+        out, cache = conv_forward(layer, inp, tanh_)
+        # output_grad same shape as output
+        output_grad = tensor3d_zeros(2, 3, 3)
+        output_grad[0][1][1] = 1.0
+        from modelwerk.primitives.activations import tanh_derivative
+        input_grad, filter_grads, bias_grads = conv_backward(
+            layer, cache, output_grad, tanh_derivative
+        )
+        assert len(input_grad) == 1
+        assert len(input_grad[0]) == 5
+        assert len(input_grad[0][0]) == 5
+        assert len(filter_grads) == 2
+        assert len(filter_grads[0]) == 1
+        assert len(filter_grads[0][0]) == 3
+        assert len(bias_grads) == 2
+
+
+class TestPooling:
+    def test_avg_pool_output_shape(self):
+        inp = tensor3d_zeros(1, 4, 4)
+        out, cache = avg_pool_forward(inp, pool_size=2)
+        assert len(out) == 1
+        assert len(out[0]) == 2
+        assert len(out[0][0]) == 2
+
+    def test_avg_pool_values(self):
+        inp = tensor3d_zeros(1, 2, 2)
+        inp[0][0][0] = 1.0
+        inp[0][0][1] = 2.0
+        inp[0][1][0] = 3.0
+        inp[0][1][1] = 4.0
+        out, _ = avg_pool_forward(inp, pool_size=2)
+        assert abs(out[0][0][0] - 2.5) < 1e-10
+
+    def test_avg_pool_multichannel(self):
+        inp = tensor3d_zeros(3, 4, 4)
+        out, _ = avg_pool_forward(inp, pool_size=2)
+        assert len(out) == 3
+        assert len(out[0]) == 2
+
+    def test_avg_pool_backward_distributes(self):
+        inp = tensor3d_zeros(1, 4, 4)
+        for r in range(4):
+            for c in range(4):
+                inp[0][r][c] = float(r * 4 + c)
+        out, cache = avg_pool_forward(inp, pool_size=2)
+        output_grad = tensor3d_zeros(1, 2, 2)
+        output_grad[0][0][0] = 1.0
+        input_grad = avg_pool_backward(output_grad, cache, pool_size=2)
+        # Gradient distributed to 4 positions, each gets 0.25
+        assert abs(input_grad[0][0][0] - 0.25) < 1e-10
+        assert abs(input_grad[0][0][1] - 0.25) < 1e-10
+        assert abs(input_grad[0][1][0] - 0.25) < 1e-10
+        assert abs(input_grad[0][1][1] - 0.25) < 1e-10
+        # Other positions should be 0
+        assert abs(input_grad[0][2][0]) < 1e-10
+
+    def test_avg_pool_backward_shape(self):
+        inp = tensor3d_zeros(2, 6, 6)
+        _, cache = avg_pool_forward(inp, pool_size=2)
+        output_grad = tensor3d_zeros(2, 3, 3)
+        input_grad = avg_pool_backward(output_grad, cache, pool_size=2)
+        assert len(input_grad) == 2
+        assert len(input_grad[0]) == 6
+        assert len(input_grad[0][0]) == 6

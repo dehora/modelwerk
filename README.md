@@ -24,7 +24,7 @@ Every operation is composed from scalar arithmetic up through vectors, matrices,
 
 Rosenblatt's perceptron — a single neuron that learns a linear decision boundary. The lesson trains it on AND, OR, and NAND (which it solves), then XOR (which it can't). This failure motivates everything that follows.
 
-**Concepts introduced:** weighted sum, step activation, perceptron learning rule, linear separability, convergence proof.
+**Concepts introduced:** weighted sum, step activation, perceptron learning rule, linear separability.
 
 ```
 uv run python lessons/01_perceptron.py
@@ -34,7 +34,7 @@ uv run python lessons/01_perceptron.py
 
 Rumelhart, Hinton, and Williams showed that networks with hidden layers can learn non-linear patterns using backpropagation. The lesson walks through the chain rule concretely — tracing gradients through a 2-layer network weight by weight — then trains an MLP on XOR and concentric circles.
 
-**Concepts introduced:** hidden layers, sigmoid activation, MSE loss, forward/backward pass, chain rule, gradient descent, vanishing gradients, learned representations.
+**Concepts introduced:** hidden layers, sigmoid activation, MSE (mean squared error) loss, forward/backward pass, chain rule, gradient descent, vanishing gradients, learned representations.
 
 ```
 uv run python lessons/02_mlp.py

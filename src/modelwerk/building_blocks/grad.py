@@ -27,6 +27,7 @@ from modelwerk.primitives.activations import (
     sigmoid, sigmoid_derivative,
     tanh_, tanh_derivative,
     relu, relu_derivative,
+    identity, identity_derivative,
 )
 
 Vector = list[float]
@@ -38,6 +39,7 @@ _DERIVATIVES = {
     sigmoid: sigmoid_derivative,
     tanh_: tanh_derivative,
     relu: relu_derivative,
+    identity: identity_derivative,
 }
 
 

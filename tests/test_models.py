@@ -2,8 +2,15 @@
 
 from modelwerk.primitives.random import create_rng
 from modelwerk.primitives.activations import sigmoid
+from modelwerk.primitives.matrix import tensor3d_zeros
+from modelwerk.primitives.losses import cross_entropy
+from modelwerk.data.utils import one_hot
 from modelwerk.models.perceptron import create_perceptron, predict, train
 from modelwerk.models.mlp import create_mlp, predict as mlp_predict, train as mlp_train
+from modelwerk.models.lenet5 import (
+    create_lenet5, lenet5_forward, lenet5_backward, lenet5_sgd_update,
+    predict as lenet_predict,
+)
 from modelwerk.data.generators import and_gate, or_gate, nand_gate, xor_gate
 
 
@@ -97,3 +104,60 @@ class TestMLP:
         out2 = mlp_predict(net2, [1.0, 0.0])
 
         assert out1 == out2
+
+
+class TestLeNet5:
+    def test_create_lenet5(self):
+        rng = create_rng(42)
+        model = create_lenet5(rng)
+        assert model.conv1 is not None
+        assert model.conv2 is not None
+        assert model.dense1 is not None
+        assert model.dense2 is not None
+
+    def test_forward_output_shape(self):
+        rng = create_rng(42)
+        model = create_lenet5(rng)
+        image = tensor3d_zeros(1, 28, 28)
+        probs, cache = lenet5_forward(model, image)
+        assert len(probs) == 10
+
+    def test_softmax_sums_to_one(self):
+        rng = create_rng(42)
+        model = create_lenet5(rng)
+        image = tensor3d_zeros(1, 28, 28)
+        image[0][14][14] = 1.0
+        probs, _ = lenet5_forward(model, image)
+        assert abs(sum(probs) - 1.0) < 1e-6
+
+    def test_predict_returns_digit(self):
+        rng = create_rng(42)
+        model = create_lenet5(rng)
+        image = tensor3d_zeros(1, 28, 28)
+        digit = lenet_predict(model, image)
+        assert 0 <= digit <= 9
+
+    def test_loss_decreases_single_sample(self):
+        rng = create_rng(42)
+        model = create_lenet5(rng)
+        image = tensor3d_zeros(1, 28, 28)
+        image[0][14][14] = 1.0
+        target = one_hot(3)
+
+        probs1, cache1 = lenet5_forward(model, image)
+        loss1 = cross_entropy(probs1, target)
+        grads = lenet5_backward(model, cache1, target)
+        lenet5_sgd_update(model, grads, 0.01)
+
+        probs2, _ = lenet5_forward(model, image)
+        loss2 = cross_entropy(probs2, target)
+        assert loss2 < loss1, f"Loss should decrease: {loss1:.4f} -> {loss2:.4f}"
+
+    def test_reproducibility(self):
+        image = tensor3d_zeros(1, 28, 28)
+        image[0][10][10] = 0.5
+        m1 = create_lenet5(create_rng(42))
+        m2 = create_lenet5(create_rng(42))
+        p1, _ = lenet5_forward(m1, image)
+        p2, _ = lenet5_forward(m2, image)
+        assert p1 == p2
