@@ -18,5 +18,11 @@ output/
 .vscode/
 *.swp
 
+# Secrets
+.env*
+*.pem
+*.key
+*.secret
+
 # OS
 .DS_Store
