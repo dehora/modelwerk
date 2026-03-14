@@ -3,3 +3,50 @@
 A sequential collection of layers with a forward pass that threads
 input through each layer, caching intermediate values for backprop.
 """
+
+from dataclasses import dataclass
+
+from modelwerk.building_blocks.dense import DenseLayer, DenseCache, create_dense, dense_forward
+
+Vector = list[float]
+
+
+@dataclass
+class Network:
+    layers: list[DenseLayer]
+    activation_fns: list     # one activation function per layer
+
+
+@dataclass
+class NetworkCache:
+    layer_caches: list[DenseCache]
+
+
+def create_network(rng, layer_sizes: list[int], activation_fns: list) -> Network:
+    """Create a sequential network.
+
+    layer_sizes: [input_dim, hidden1, hidden2, ..., output_dim]
+    activation_fns: one per layer (len = len(layer_sizes) - 1)
+    """
+    layers = []
+    for i in range(len(layer_sizes) - 1):
+        layer = create_dense(rng, layer_sizes[i], layer_sizes[i + 1])
+        layers.append(layer)
+    return Network(layers=layers, activation_fns=activation_fns)
+
+
+def network_forward(network: Network, inputs: Vector) -> tuple[Vector, NetworkCache]:
+    """Thread input through every layer, caching each step.
+
+    Each layer's output becomes the next layer's input:
+        a₀ = inputs
+        a₁ = f₁(W₁ @ a₀ + b₁)
+        a₂ = f₂(W₂ @ a₁ + b₂)
+        ...
+    """
+    layer_caches = []
+    current = inputs
+    for layer, activation_fn in zip(network.layers, network.activation_fns):
+        current, cache = dense_forward(layer, current, activation_fn)
+        layer_caches.append(cache)
+    return current, NetworkCache(layer_caches=layer_caches)
