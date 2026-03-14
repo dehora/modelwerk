@@ -1,6 +1,6 @@
-"""Tests for building blocks (neuron, layers, network, gradients, conv, pool)."""
+"""Tests for building blocks (neuron, layers, network, gradients, conv, pool, attention, embedding)."""
 
-from modelwerk.primitives.activations import step, sigmoid, relu, tanh_
+from modelwerk.primitives.activations import step, sigmoid, relu, tanh_, layer_norm, layer_norm_backward
 from modelwerk.primitives.losses import mse
 from modelwerk.primitives.random import create_rng
 from modelwerk.primitives.matrix import tensor3d_zeros
@@ -286,3 +286,169 @@ class TestPooling:
         assert len(input_grad) == 2
         assert len(input_grad[0]) == 6
         assert len(input_grad[0][0]) == 6
+
+
+class TestLayerNorm:
+    def test_output_zero_mean(self):
+        v = [1.0, 2.0, 3.0, 4.0, 5.0]
+        normed = layer_norm(v)
+        mean = sum(normed) / len(normed)
+        assert abs(mean) < 1e-6
+
+    def test_output_unit_variance(self):
+        v = [1.0, 2.0, 3.0, 4.0, 5.0]
+        normed = layer_norm(v)
+        mean = sum(normed) / len(normed)
+        variance = sum((x - mean) ** 2 for x in normed) / len(normed)
+        assert abs(variance - 1.0) < 1e-4
+
+    def test_constant_input(self):
+        v = [3.0, 3.0, 3.0, 3.0]
+        normed = layer_norm(v)
+        for x in normed:
+            assert abs(x) < 1e-2
+
+    def test_backward_shape(self):
+        v = [1.0, 2.0, 3.0]
+        normed = layer_norm(v)
+        grad = [1.0, 0.0, 0.0]
+        d_input = layer_norm_backward(grad, normed, v)
+        assert len(d_input) == 3
+
+    def test_backward_numerical(self):
+        """Layer norm backward should match numerical gradient."""
+        v = [1.0, 2.0, 3.0, 4.0]
+        normed = layer_norm(v)
+        grad_out = [0.5, -0.3, 0.1, 0.2]
+        analytical = layer_norm_backward(grad_out, normed, v)
+
+        eps = 1e-5
+        for i in range(len(v)):
+            v_plus = list(v)
+            v_plus[i] += eps
+            v_minus = list(v)
+            v_minus[i] -= eps
+            n_plus = layer_norm(v_plus)
+            n_minus = layer_norm(v_minus)
+            numerical = sum(
+                g * (np - nm) / (2 * eps)
+                for g, np, nm in zip(grad_out, n_plus, n_minus)
+            )
+            assert abs(analytical[i] - numerical) < 1e-4, (
+                f"LayerNorm grad mismatch at {i}: {analytical[i]:.6f} vs {numerical:.6f}"
+            )
+
+
+class TestEmbedding:
+    def test_create_embedding(self):
+        from modelwerk.building_blocks.embedding import create_token_embedding
+        rng = create_rng(42)
+        emb = create_token_embedding(rng, vocab_size=10, d_model=8)
+        assert len(emb.table) == 10
+        assert len(emb.table[0]) == 8
+
+    def test_embed_tokens(self):
+        from modelwerk.building_blocks.embedding import create_token_embedding, embed_tokens
+        rng = create_rng(42)
+        emb = create_token_embedding(rng, vocab_size=10, d_model=8)
+        result = embed_tokens(emb, [0, 3, 5])
+        assert len(result) == 3
+        assert len(result[0]) == 8
+        assert result[0] == list(emb.table[0])
+        assert result[1] == list(emb.table[3])
+
+    def test_positional_encoding_shape(self):
+        from modelwerk.building_blocks.embedding import sinusoidal_positional_encoding
+        pe = sinusoidal_positional_encoding(seq_len=16, d_model=32)
+        assert len(pe) == 16
+        assert len(pe[0]) == 32
+
+    def test_positional_encoding_different_positions(self):
+        from modelwerk.building_blocks.embedding import sinusoidal_positional_encoding
+        pe = sinusoidal_positional_encoding(seq_len=4, d_model=8)
+        assert pe[0] != pe[1]
+        assert pe[1] != pe[2]
+
+    def test_positional_encoding_deterministic(self):
+        from modelwerk.building_blocks.embedding import sinusoidal_positional_encoding
+        pe1 = sinusoidal_positional_encoding(seq_len=8, d_model=16)
+        pe2 = sinusoidal_positional_encoding(seq_len=8, d_model=16)
+        assert pe1 == pe2
+
+
+class TestAttention:
+    def test_causal_mask(self):
+        from modelwerk.building_blocks.attention import causal_mask
+        mask = causal_mask(4)
+        assert len(mask) == 4
+        assert len(mask[0]) == 4
+        assert mask[0][0] == 0.0
+        assert mask[0][1] == -1e9
+        assert mask[1][0] == 0.0
+        assert mask[1][1] == 0.0
+        assert mask[1][2] == -1e9
+        assert mask[3][3] == 0.0
+
+    def test_scaled_dot_product_attention_shape(self):
+        from modelwerk.building_blocks.attention import scaled_dot_product_attention
+        Q = [[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]
+        K = [[1.0, 0.0], [0.0, 1.0], [0.5, 0.5]]
+        V = [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]
+        out, weights = scaled_dot_product_attention(Q, K, V)
+        assert len(out) == 3
+        assert len(out[0]) == 2
+        assert len(weights) == 3
+        assert len(weights[0]) == 3
+
+    def test_attention_weights_sum_to_one(self):
+        from modelwerk.building_blocks.attention import scaled_dot_product_attention
+        Q = [[1.0, 0.0], [0.0, 1.0]]
+        K = [[1.0, 0.0], [0.0, 1.0]]
+        V = [[1.0, 0.0], [0.0, 1.0]]
+        _, weights = scaled_dot_product_attention(Q, K, V)
+        for row in weights:
+            assert abs(sum(row) - 1.0) < 1e-6
+
+    def test_causal_mask_blocks_future(self):
+        from modelwerk.building_blocks.attention import scaled_dot_product_attention, causal_mask
+        Q = [[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]
+        K = [[1.0, 0.0], [0.0, 1.0], [0.5, 0.5]]
+        V = [[1.0, 0.0], [0.0, 1.0], [0.5, 0.5]]
+        mask = causal_mask(3)
+        _, weights = scaled_dot_product_attention(Q, K, V, mask)
+        # First position can only attend to itself
+        assert abs(weights[0][0] - 1.0) < 1e-4
+        # Position 0 should have near-zero attention to position 1
+        assert weights[0][1] < 1e-6
+
+    def test_multi_head_forward_shape(self):
+        from modelwerk.building_blocks.attention import (
+            create_multi_head_attention, multi_head_forward, causal_mask,
+        )
+        rng = create_rng(42)
+        attn = create_multi_head_attention(rng, d_model=8, num_heads=2)
+        X = [[float(i + j) for j in range(8)] for i in range(4)]
+        mask = causal_mask(4)
+        out, cache = multi_head_forward(attn, X, mask)
+        assert len(out) == 4
+        assert len(out[0]) == 8
+        assert len(cache.attn_weights) == 2
+        assert len(cache.attn_weights[0]) == 4
+
+    def test_multi_head_backward_shapes(self):
+        from modelwerk.building_blocks.attention import (
+            create_multi_head_attention, multi_head_forward, multi_head_backward,
+            causal_mask,
+        )
+        rng = create_rng(42)
+        d_model = 8
+        attn = create_multi_head_attention(rng, d_model=d_model, num_heads=2)
+        X = [[float(i + j) * 0.1 for j in range(d_model)] for i in range(4)]
+        mask = causal_mask(4)
+        out, cache = multi_head_forward(attn, X, mask)
+        grad_out = [[0.1] * d_model for _ in range(4)]
+        d_input, param_grads = multi_head_backward(attn, cache, grad_out, mask)
+        assert len(d_input) == 4
+        assert len(d_input[0]) == d_model
+        assert len(param_grads["W_q_grad"]) == d_model
+        assert len(param_grads["W_q_grad"][0]) == d_model

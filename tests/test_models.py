@@ -11,7 +11,12 @@ from modelwerk.models.lenet5 import (
     create_lenet5, lenet5_forward, lenet5_backward, lenet5_sgd_update,
     predict as lenet_predict,
 )
+from modelwerk.models.transformer import (
+    create_transformer_lm, transformer_forward, transformer_backward,
+    transformer_sgd_update,
+)
 from modelwerk.data.generators import and_gate, or_gate, nand_gate, xor_gate
+from modelwerk.data.text import build_vocab, prepare_sequences
 
 
 class TestPerceptron:
@@ -161,3 +166,71 @@ class TestLeNet5:
         p1, _ = lenet5_forward(m1, image)
         p2, _ = lenet5_forward(m2, image)
         assert p1 == p2
+
+
+class TestTransformer:
+    def test_create_transformer(self):
+        rng = create_rng(42)
+        model = create_transformer_lm(rng, vocab_size=10, d_model=8, num_heads=2,
+                                       ff_dim=16, seq_len=4)
+        assert model.vocab_size == 10
+        assert model.d_model == 8
+        assert model.seq_len == 4
+
+    def test_forward_output_shape(self):
+        rng = create_rng(42)
+        model = create_transformer_lm(rng, vocab_size=10, d_model=8, num_heads=2,
+                                       ff_dim=16, seq_len=4)
+        probs, cache = transformer_forward(model, [0, 1, 2, 3])
+        assert len(probs) == 4
+        assert len(probs[0]) == 10
+
+    def test_softmax_sums_to_one(self):
+        rng = create_rng(42)
+        model = create_transformer_lm(rng, vocab_size=10, d_model=8, num_heads=2,
+                                       ff_dim=16, seq_len=4)
+        probs, _ = transformer_forward(model, [0, 1, 2, 3])
+        for p in probs:
+            assert abs(sum(p) - 1.0) < 1e-5
+
+    def test_loss_decreases(self):
+        rng = create_rng(42)
+        vocab_size = 10
+        model = create_transformer_lm(rng, vocab_size=vocab_size, d_model=8,
+                                       num_heads=2, ff_dim=16, seq_len=4)
+        token_ids = [0, 1, 2, 3]
+        target_ids = [1, 2, 3, 4]
+        target_onehots = [one_hot(t, vocab_size) for t in target_ids]
+
+        probs1, cache1 = transformer_forward(model, token_ids)
+        loss1 = sum(cross_entropy(probs1[t], target_onehots[t]) for t in range(4)) / 4
+
+        # Train for a few steps
+        for _ in range(5):
+            probs, cache = transformer_forward(model, token_ids)
+            targets = [one_hot(t, vocab_size) for t in target_ids]
+            grads = transformer_backward(model, cache, targets)
+            transformer_sgd_update(model, grads, 0.01)
+
+        probs2, _ = transformer_forward(model, token_ids)
+        loss2 = sum(cross_entropy(probs2[t], target_onehots[t]) for t in range(4)) / 4
+        assert loss2 < loss1, f"Loss should decrease: {loss1:.4f} -> {loss2:.4f}"
+
+    def test_reproducibility(self):
+        m1 = create_transformer_lm(create_rng(42), vocab_size=10, d_model=8,
+                                    num_heads=2, ff_dim=16, seq_len=4)
+        m2 = create_transformer_lm(create_rng(42), vocab_size=10, d_model=8,
+                                    num_heads=2, ff_dim=16, seq_len=4)
+        p1, _ = transformer_forward(m1, [0, 1, 2, 3])
+        p2, _ = transformer_forward(m2, [0, 1, 2, 3])
+        assert p1 == p2
+
+    def test_vocab_and_sequences(self):
+        text = "hello world"
+        char_to_id, id_to_char = build_vocab(text)
+        assert len(char_to_id) == len(set(text))
+        inputs, targets = prepare_sequences(text, char_to_id, seq_len=4)
+        assert len(inputs) == len(text) - 4
+        assert len(inputs[0]) == 4
+        # Target is shifted by 1
+        assert inputs[0][1:] == targets[0][:3]

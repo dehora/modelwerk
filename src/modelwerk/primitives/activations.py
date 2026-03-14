@@ -1,8 +1,9 @@
-"""Level 2: Activation functions.
+"""Level 2: Activation functions and normalization.
 
 Non-linear functions applied to neuron outputs — step, sigmoid,
 tanh, relu, softmax. Each includes its derivative for backprop.
-Built from scalar and vector operations.
+Also includes layer normalization (zero mean, unit variance) used
+by the transformer. Built from scalar and vector operations.
 """
 
 import math
@@ -57,6 +58,66 @@ def identity(x: float) -> float:
 def identity_derivative(x: float) -> float:
     """Derivative of identity: always 1."""
     return 1.0
+
+
+def layer_norm(v: Vector) -> Vector:
+    """Normalize a vector to zero mean and unit variance.
+
+    Simplified: no learnable gamma/beta parameters.
+    The following dense layer absorbs any needed scale/shift.
+    """
+    n = len(v)
+    mean = vector.sum_all(v) / n
+    centered = [scalar.subtract(x, mean) for x in v]
+    variance = vector.sum_all([scalar.multiply(c, c) for c in centered]) / n
+    eps = 1e-5
+    std_inv = scalar.inverse(scalar.power(scalar.add(variance, eps), 0.5))
+    return [scalar.multiply(c, std_inv) for c in centered]
+
+
+def layer_norm_backward(grad_out: Vector, normed_input: Vector, original_input: Vector) -> Vector:
+    """Backward pass for layer norm.
+
+    Args:
+        grad_out: gradient flowing back through layer norm
+        normed_input: the output of layer_norm (the normalized values)
+        original_input: the input that was passed to layer_norm
+    """
+    n = len(grad_out)
+    mean = vector.sum_all(original_input) / n
+    centered = [scalar.subtract(x, mean) for x in original_input]
+    variance = vector.sum_all([scalar.multiply(c, c) for c in centered]) / n
+    eps = 1e-5
+    std_inv = scalar.inverse(scalar.power(scalar.add(variance, eps), 0.5))
+
+    # d_centered = grad_out * std_inv
+    d_centered = [scalar.multiply(g, std_inv) for g in grad_out]
+
+    # d_variance = sum(grad_out * centered * -0.5 * (var + eps)^(-3/2))
+    d_variance = 0.0
+    var_factor = scalar.multiply(-0.5, scalar.power(scalar.add(variance, eps), -1.5))
+    for i in range(n):
+        d_variance = scalar.add(d_variance,
+                                scalar.multiply(grad_out[i],
+                                                scalar.multiply(centered[i], var_factor)))
+
+    # d_mean = sum(-d_centered) + d_variance * sum(-2 * centered) / n
+    d_mean = 0.0
+    for i in range(n):
+        d_mean = scalar.subtract(d_mean, d_centered[i])
+    sum_centered = vector.sum_all(centered)
+    d_mean = scalar.add(d_mean,
+                        scalar.multiply(d_variance, scalar.multiply(-2.0 / n, sum_centered)))
+
+    # d_input = d_centered + d_variance * 2 * centered / n + d_mean / n
+    d_input = []
+    for i in range(n):
+        di = scalar.add(d_centered[i],
+                        scalar.add(scalar.multiply(d_variance,
+                                                   scalar.multiply(2.0 / n, centered[i])),
+                                   d_mean / n))
+        d_input.append(di)
+    return d_input
 
 
 def softmax(v: Vector) -> Vector:
