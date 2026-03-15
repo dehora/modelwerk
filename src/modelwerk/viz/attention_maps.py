@@ -5,7 +5,7 @@ attend to which other tokens.
 """
 
 import matplotlib
-matplotlib.use("Agg")
+matplotlib.use("Agg")  # non-interactive backend — render to files, not windows
 import matplotlib.pyplot as plt
 
 Matrix = list[list[float]]
@@ -27,16 +27,17 @@ def plot_attention_weights(
     if num_heads == 1:
         axes = [axes]
 
-    for h, (weights, ax) in enumerate(zip(attention_weights, axes)):
+    for head_idx, (weights, ax) in enumerate(zip(attention_weights, axes)):
         seq_len = len(weights)
+        # Display attention matrix as a heatmap: darker blue = stronger attention
         im = ax.imshow(weights, cmap="Blues", vmin=0.0, vmax=1.0, aspect="auto")
-        ax.set_title(f"Head {h + 1}")
+        ax.set_title(f"Head {head_idx + 1}")
         ax.set_xlabel("Key position")
         ax.set_ylabel("Query position")
 
-        # Show token labels if sequence is short enough
+        # Only label individual tokens when the sequence is short enough to read
         if seq_len <= 40:
-            display_tokens = [t if t != "\n" else "\\n" for t in tokens[:seq_len]]
+            display_tokens = [tok if tok != "\n" else "\\n" for tok in tokens[:seq_len]]
             ax.set_xticks(range(seq_len))
             ax.set_xticklabels(display_tokens, rotation=90, fontsize=7)
             ax.set_yticks(range(seq_len))

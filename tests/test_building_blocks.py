@@ -8,7 +8,7 @@ from modelwerk.building_blocks.neuron import Neuron, create_neuron, forward
 from modelwerk.building_blocks.dense import DenseLayer, create_dense, dense_forward
 from modelwerk.building_blocks.network import create_network, network_forward
 from modelwerk.building_blocks.grad import backward, numerical_gradient_check
-from modelwerk.building_blocks.optimizers import sgd_update
+from modelwerk.building_blocks.optimizers import sgd_update, sgd_momentum_update
 from modelwerk.building_blocks.conv import create_conv, conv_forward, conv_backward, ConvLayer
 from modelwerk.building_blocks.pool import avg_pool_forward, avg_pool_backward
 
@@ -187,6 +187,51 @@ class TestOptimizers:
         loss2 = mse(out2, targets)
         assert loss2 < loss1
 
+    def test_sgd_momentum_reduces_loss(self):
+        from modelwerk.building_blocks.grad import LayerGradients
+        from modelwerk.primitives.losses import mse_derivative
+        rng = create_rng(42)
+        net = create_network(rng, [2, 3, 1], [sigmoid, sigmoid])
+        inputs = [1.0, 0.0]
+        targets = [1.0]
+        # Initialize velocities to zero
+        velocities = [
+            LayerGradients(
+                weight_grads=[[0.0] * len(l.weights[0]) for _ in range(len(l.weights))],
+                bias_grads=[0.0] * len(l.biases),
+            )
+            for l in net.layers
+        ]
+        out1, _ = network_forward(net, inputs)
+        loss1 = mse(out1, targets)
+        for _ in range(10):
+            output, cache = network_forward(net, inputs)
+            loss_grad = mse_derivative(output, targets)
+            grads = backward(net, cache, loss_grad)
+            velocities = sgd_momentum_update(net, grads, velocities, 0.5, momentum=0.9)
+        out2, _ = network_forward(net, inputs)
+        loss2 = mse(out2, targets)
+        assert loss2 < loss1
+
+    def test_sgd_momentum_returns_velocities(self):
+        from modelwerk.building_blocks.grad import LayerGradients
+        from modelwerk.primitives.losses import mse_derivative
+        rng = create_rng(42)
+        net = create_network(rng, [2, 1], [sigmoid])
+        velocities = [
+            LayerGradients(
+                weight_grads=[[0.0] * 2],
+                bias_grads=[0.0],
+            )
+        ]
+        output, cache = network_forward(net, [1.0, 1.0])
+        loss_grad = mse_derivative(output, [1.0])
+        grads = backward(net, cache, loss_grad)
+        new_vel = sgd_momentum_update(net, grads, velocities, 0.1, momentum=0.9)
+        assert len(new_vel) == 1
+        # Velocities should be non-zero after an update
+        assert any(v != 0.0 for row in new_vel[0].weight_grads for v in row)
+
 
 class TestConvLayer:
     def test_create_conv_shape(self):
@@ -236,6 +281,50 @@ class TestConvLayer:
         assert len(filter_grads[0]) == 1
         assert len(filter_grads[0][0]) == 3
         assert len(bias_grads) == 2
+
+
+    def test_conv_backward_numerical_gradient(self):
+        """Conv filter gradients should match numerical (finite-difference) gradients."""
+        rng = create_rng(42)
+        layer = create_conv(rng, 1, 1, kernel_size=3)
+        inp = tensor3d_zeros(1, 5, 5)
+        # Put some signal in the input
+        for r in range(5):
+            for c in range(5):
+                inp[0][r][c] = float(r + c) * 0.1
+
+        from modelwerk.primitives.activations import tanh_derivative
+
+        def forward_loss(layer, inp):
+            out, _ = conv_forward(layer, inp, tanh_)
+            return sum(out[0][r][c] for r in range(len(out[0])) for c in range(len(out[0][0])))
+
+        out, cache = conv_forward(layer, inp, tanh_)
+        # Gradient of sum is all ones
+        output_grad = tensor3d_zeros(1, 3, 3)
+        for r in range(3):
+            for c in range(3):
+                output_grad[0][r][c] = 1.0
+        _, filter_grads, bias_grads = conv_backward(layer, cache, output_grad, tanh_derivative)
+
+        # Check filter gradients numerically
+        eps = 1e-5
+        max_error = 0.0
+        for kh in range(3):
+            for kw in range(3):
+                original = layer.filters[0][0][kh][kw]
+                layer.filters[0][0][kh][kw] = original + eps
+                loss_plus = forward_loss(layer, inp)
+                layer.filters[0][0][kh][kw] = original - eps
+                loss_minus = forward_loss(layer, inp)
+                layer.filters[0][0][kh][kw] = original
+                numerical = (loss_plus - loss_minus) / (2 * eps)
+                analytical = filter_grads[0][0][kh][kw]
+                denom = max(abs(numerical), abs(analytical), 1e-8)
+                error = abs(numerical - analytical) / denom
+                if error > max_error:
+                    max_error = error
+        assert max_error < 1e-4, f"Conv gradient check failed: max error {max_error}"
 
 
 class TestPooling:
@@ -434,6 +523,13 @@ class TestAttention:
         assert len(out[0]) == 8
         assert len(cache.attn_weights) == 2
         assert len(cache.attn_weights[0]) == 4
+
+    def test_create_multi_head_attention_validation(self):
+        from modelwerk.building_blocks.attention import create_multi_head_attention
+        rng = create_rng(42)
+        import pytest
+        with pytest.raises(ValueError, match="divisible"):
+            create_multi_head_attention(rng, d_model=7, num_heads=2)
 
     def test_multi_head_backward_shapes(self):
         from modelwerk.building_blocks.attention import (

@@ -7,7 +7,7 @@ into classification regions.
 import sys
 
 import matplotlib
-matplotlib.use("Agg")
+matplotlib.use("Agg")  # non-interactive backend — render to files, not windows
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 
@@ -32,11 +32,11 @@ def plot_decision_boundary_2d(
 
     # Evaluate on grid
     grid_preds: list[list[float]] = []
-    for j in range(resolution):
+    for grid_row in range(resolution):
         row = []
-        for i in range(resolution):
-            x = x_min + i * x_step
-            y = y_min + j * y_step
+        for grid_col in range(resolution):
+            x = x_min + grid_col * x_step
+            y = y_min + grid_row * y_step
             row.append(float(predict_fn([x, y])))
         grid_preds.append(row)
 
@@ -48,8 +48,9 @@ def plot_decision_boundary_2d(
 
     # Use contourf instead of imshow to avoid row-ordering issues.
     # Two regions: light gray = predicts 0, teal = predicts 1.
-    xs_grid = [x_min + i * x_step for i in range(resolution)]
-    ys_grid = [y_min + j * y_step for j in range(resolution)]
+    xs_grid = [x_min + grid_col * x_step for grid_col in range(resolution)]
+    ys_grid = [y_min + grid_row * y_step for grid_row in range(resolution)]
+    # levels define the decision boundary: values < 0.5 map to class 0, > 0.5 to class 1
     ax.contourf(
         xs_grid, ys_grid, grid_preds,
         levels=[-0.5, 0.5, 1.5],
@@ -58,6 +59,7 @@ def plot_decision_boundary_2d(
     )
 
     # Plot data points: hollow = class 0 (false), filled = class 1 (true)
+    # Track whether we've added a legend entry for each class (only need one per class)
     added_label_0 = False
     added_label_1 = False
     for x, y, label in zip(xs, ys, labels):
@@ -118,11 +120,11 @@ def ascii_decision_boundary_2d(
     # Map data points to grid positions, storing (label, grid_x, grid_y)
     point_map: dict[tuple[int, int], float] = {}
     for (px, py), label in zip(data, labels):
-        gi = round((px - x_min) / x_step)
-        gj = round((py - y_min) / y_step)
-        gi = max(0, min(width - 1, gi))
-        gj = max(0, min(height - 1, gj))
-        point_map[(gi, gj)] = label
+        grid_col = round((px - x_min) / x_step)
+        grid_row = round((py - y_min) / y_step)
+        grid_col = max(0, min(width - 1, grid_col))
+        grid_row = max(0, min(height - 1, grid_row))
+        point_map[(grid_col, grid_row)] = label
 
     # Braille characters: single-width in all terminals, no alignment issues
     _FILL = "⣿"  # all 8 dots — dense textured fill
@@ -138,15 +140,15 @@ def ascii_decision_boundary_2d(
 
     # Top to bottom (high y to low y)
     has_misclassified = False
-    for j in range(height - 1, -1, -1):
+    for grid_row in range(height - 1, -1, -1):
         row = []
-        for i in range(width):
-            if (i, j) in point_map:
-                label = point_map[(i, j)]
+        for grid_col in range(width):
+            if (grid_col, grid_row) in point_map:
+                label = point_map[(grid_col, grid_row)]
                 char = "F" if label == 0 else "T"
                 if color:
-                    x = x_min + i * x_step
-                    y = y_min + j * y_step
+                    x = x_min + grid_col * x_step
+                    y = y_min + grid_row * y_step
                     pred = predict_fn([x, y])
                     correct = (pred == int(label))
                     if correct:
@@ -157,8 +159,8 @@ def ascii_decision_boundary_2d(
                 else:
                     row.append(char)
             else:
-                x = x_min + i * x_step
-                y = y_min + j * y_step
+                x = x_min + grid_col * x_step
+                y = y_min + grid_row * y_step
                 pred = predict_fn([x, y])
                 if color:
                     if pred == 0:
@@ -192,6 +194,7 @@ def plot_points_2d(
     labels: list[float],
     title: str = "Data Points",
 ) -> plt.Figure:
+    """Scatter plot of labeled 2D data points. Returns a matplotlib Figure."""
     fig, ax = plt.subplots()
     xs = [p[0] for p in data]
     ys = [p[1] for p in data]

@@ -46,12 +46,14 @@ def sinusoidal_positional_encoding(seq_len: int, d_model: int) -> Matrix:
     pe: Matrix = []
     for pos in range(seq_len):
         row: Vector = []
-        for i in range(d_model):
-            angle = pos / math.pow(10000.0, (2.0 * (i // 2)) / d_model)
-            if i % 2 == 0:
-                row.append(math.sin(angle))
+        for dim in range(d_model):
+            # The formula uses pairs: even indices get sin, odd get cos.
+            # dim // 2 gives the pair index (0,0,1,1,2,2,...) used in the exponent.
+            angle = pos / math.pow(10000.0, (2.0 * (dim // 2)) / d_model)
+            if dim % 2 == 0:
+                row.append(math.sin(angle))   # PE(pos, 2i) = sin(...)
             else:
-                row.append(math.cos(angle))
+                row.append(math.cos(angle))   # PE(pos, 2i+1) = cos(...)
         pe.append(row)
     return pe
 

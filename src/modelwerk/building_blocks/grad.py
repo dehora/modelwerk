@@ -65,10 +65,10 @@ def backward(network, cache, loss_grad: Vector) -> list[LayerGradients]:
     delta = loss_grad
 
     # Walk backwards through layers
-    for i in range(len(network.layers) - 1, -1, -1):
-        layer = network.layers[i]
-        layer_cache = cache.layer_caches[i]
-        activation_fn = network.activation_fns[i]
+    for layer_idx in range(len(network.layers) - 1, -1, -1):
+        layer = network.layers[layer_idx]
+        layer_cache = cache.layer_caches[layer_idx]
+        activation_fn = network.activation_fns[layer_idx]
         deriv_fn = _DERIVATIVES[activation_fn]
 
         # delta = dL/da * f'(z), element-wise
@@ -123,47 +123,47 @@ def numerical_gradient_check(
         grads = analytical[layer_idx]
 
         # Check weight gradients
-        for r in range(len(layer.weights)):
-            for c in range(len(layer.weights[0])):
-                original = layer.weights[r][c]
+        for row in range(len(layer.weights)):
+            for col in range(len(layer.weights[0])):
+                original = layer.weights[row][col]
 
-                layer.weights[r][c] = original + epsilon
+                layer.weights[row][col] = original + epsilon
                 out_plus, _ = network_forward(network, inputs)
                 loss_plus = loss_fn(out_plus, targets)
 
-                layer.weights[r][c] = original - epsilon
+                layer.weights[row][col] = original - epsilon
                 out_minus, _ = network_forward(network, inputs)
                 loss_minus = loss_fn(out_minus, targets)
 
-                layer.weights[r][c] = original
+                layer.weights[row][col] = original
 
                 numerical = (loss_plus - loss_minus) / (2 * epsilon)
-                anal = grads.weight_grads[r][c]
+                analytical_grad = grads.weight_grads[row][col]
 
-                denom = max(abs(numerical), abs(anal), 1e-8)
-                error = abs(numerical - anal) / denom
+                denom = max(abs(numerical), abs(analytical_grad), 1e-8)
+                error = abs(numerical - analytical_grad) / denom
                 if error > max_error:
                     max_error = error
 
         # Check bias gradients
-        for j in range(len(layer.biases)):
-            original = layer.biases[j]
+        for bias_idx in range(len(layer.biases)):
+            original = layer.biases[bias_idx]
 
-            layer.biases[j] = original + epsilon
+            layer.biases[bias_idx] = original + epsilon
             out_plus, _ = network_forward(network, inputs)
             loss_plus = loss_fn(out_plus, targets)
 
-            layer.biases[j] = original - epsilon
+            layer.biases[bias_idx] = original - epsilon
             out_minus, _ = network_forward(network, inputs)
             loss_minus = loss_fn(out_minus, targets)
 
-            layer.biases[j] = original
+            layer.biases[bias_idx] = original
 
             numerical = (loss_plus - loss_minus) / (2 * epsilon)
-            anal = grads.bias_grads[j]
+            analytical_grad = grads.bias_grads[bias_idx]
 
-            denom = max(abs(numerical), abs(anal), 1e-8)
-            error = abs(numerical - anal) / denom
+            denom = max(abs(numerical), abs(analytical_grad), 1e-8)
+            error = abs(numerical - analytical_grad) / denom
             if error > max_error:
                 max_error = error
 

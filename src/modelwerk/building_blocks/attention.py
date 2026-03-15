@@ -64,14 +64,14 @@ def causal_mask(seq_len: int) -> Matrix:
     future positions.
     """
     mask: Matrix = []
-    for i in range(seq_len):
-        row: Vector = []
-        for j in range(seq_len):
-            if j <= i:
-                row.append(0.0)
+    for row in range(seq_len):
+        vals: Vector = []
+        for col in range(seq_len):
+            if col <= row:
+                vals.append(0.0)
             else:
-                row.append(-1e9)
-        mask.append(row)
+                vals.append(-1e9)
+        mask.append(vals)
     return mask
 
 
@@ -137,10 +137,10 @@ def _concat_heads(heads: list[Matrix]) -> Matrix:
     """Concatenate head outputs back into (seq_len, d_model)."""
     seq_len = len(heads[0])
     result: Matrix = []
-    for t in range(seq_len):
+    for pos in range(seq_len):
         row: Vector = []
         for head in heads:
-            row.extend(head[t])
+            row.extend(head[pos])
         result.append(row)
     return result
 
@@ -292,17 +292,17 @@ def _attention_backward(
     #   J_ij = w_i * (delta_ij - w_j)
     # For each row: ds_j = w_j * (dw_j - dot(dw, w))
     d_scores: Matrix = []
-    for i in range(seq_len):
+    for row in range(seq_len):
         dot_prod = 0.0
-        for k in range(seq_len):
+        for idx in range(seq_len):
             dot_prod = scalar.add(dot_prod,
-                                  scalar.multiply(d_weights[i][k], weights[i][k]))
-        row: Vector = []
-        for j in range(seq_len):
-            ds = scalar.multiply(weights[i][j],
-                                 scalar.subtract(d_weights[i][j], dot_prod))
-            row.append(ds)
-        d_scores.append(row)
+                                  scalar.multiply(d_weights[row][idx], weights[row][idx]))
+        vals: Vector = []
+        for col in range(seq_len):
+            ds = scalar.multiply(weights[row][col],
+                                 scalar.subtract(d_weights[row][col], dot_prod))
+            vals.append(ds)
+        d_scores.append(vals)
 
     # --- Step 3: Backward through scaling (scores = raw_scores / sqrt(d_k)) ---
     d_scores = matrix.scale(1.0 / scale, d_scores)

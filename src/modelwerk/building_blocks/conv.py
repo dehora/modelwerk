@@ -79,22 +79,22 @@ def conv_forward(
     z = tensor3d_zeros(num_filters, out_h, out_w)
     a = tensor3d_zeros(num_filters, out_h, out_w)
 
-    for f in range(num_filters):
-        for i in range(out_h):
-            for j in range(out_w):
-                val = layer.biases[f]
-                for c in range(in_channels):
+    for filt in range(num_filters):
+        for out_row in range(out_h):
+            for out_col in range(out_w):
+                val = layer.biases[filt]
+                for ch in range(in_channels):
                     for kh in range(k):
                         for kw in range(k):
                             val = scalar.add(
                                 val,
                                 scalar.multiply(
-                                    layer.filters[f][c][kh][kw],
-                                    inputs[c][i + kh][j + kw],
+                                    layer.filters[filt][ch][kh][kw],
+                                    inputs[ch][out_row + kh][out_col + kw],
                                 ),
                             )
-                z[f][i][j] = val
-                a[f][i][j] = activation_fn(val)
+                z[filt][out_row][out_col] = val
+                a[filt][out_row][out_col] = activation_fn(val)
 
     cache = ConvCache(inputs=inputs, z=z, a=a)
     return a, cache
@@ -120,37 +120,40 @@ def conv_backward(
 
     # Compute delta = output_grad * activation_derivative(z)
     delta = tensor3d_zeros(num_filters, out_h, out_w)
-    for f in range(num_filters):
-        for i in range(out_h):
-            for j in range(out_w):
-                delta[f][i][j] = scalar.multiply(
-                    output_grad[f][i][j], deriv_fn(cache.z[f][i][j])
+    for filt in range(num_filters):
+        for out_row in range(out_h):
+            for out_col in range(out_w):
+                delta[filt][out_row][out_col] = scalar.multiply(
+                    output_grad[filt][out_row][out_col], deriv_fn(cache.z[filt][out_row][out_col])
                 )
 
     # Bias gradients: sum of delta over spatial positions
     bias_grads = [0.0] * num_filters
-    for f in range(num_filters):
-        for i in range(out_h):
-            for j in range(out_w):
-                bias_grads[f] = scalar.add(bias_grads[f], delta[f][i][j])
+    for filt in range(num_filters):
+        for out_row in range(out_h):
+            for out_col in range(out_w):
+                bias_grads[filt] = scalar.add(bias_grads[filt], delta[filt][out_row][out_col])
 
-    # Filter gradients: correlate delta with inputs
+    # Filter gradients: how much should each filter weight change?
+    # For each weight at position (kh, kw), sum over every output position
+    # where that weight was used: grad += delta[output_pos] * input[corresponding_pos]
+    # This is cross-correlation of delta with the input.
     filter_grads = []
-    for f in range(num_filters):
+    for filt in range(num_filters):
         fg = []
-        for c in range(in_channels):
+        for ch in range(in_channels):
             channel = []
             for kh in range(k):
                 row = []
                 for kw in range(k):
                     grad = 0.0
-                    for i in range(out_h):
-                        for j in range(out_w):
+                    for out_row in range(out_h):
+                        for out_col in range(out_w):
                             grad = scalar.add(
                                 grad,
                                 scalar.multiply(
-                                    delta[f][i][j],
-                                    cache.inputs[c][i + kh][j + kw],
+                                    delta[filt][out_row][out_col],
+                                    cache.inputs[ch][out_row + kh][out_col + kw],
                                 ),
                             )
                     row.append(grad)
@@ -158,26 +161,29 @@ def conv_backward(
             fg.append(channel)
         filter_grads.append(fg)
 
-    # Input gradients: "full" convolution of delta with rotated filters
+    # Input gradients: how much should each input pixel change?
+    # Each input pixel contributed to multiple output positions (everywhere
+    # the filter overlapped it). Sum the filter weight * delta for each
+    # of those positions. This is equivalent to convolving delta with the
+    # 180-degree-rotated filter ("full convolution").
     input_grad = tensor3d_zeros(in_channels, in_h, in_w)
-    for c in range(in_channels):
-        for i in range(in_h):
-            for j in range(in_w):
+    for ch in range(in_channels):
+        for in_row in range(in_h):
+            for in_col in range(in_w):
                 val = 0.0
-                for f in range(num_filters):
+                for filt in range(num_filters):
                     for kh in range(k):
                         for kw in range(k):
-                            # delta position = (i - kh, j - kw)
-                            di = i - kh
-                            dj = j - kw
-                            if 0 <= di < out_h and 0 <= dj < out_w:
+                            oi = in_row - kh  # output row that used this input row
+                            oj = in_col - kw  # output col that used this input col
+                            if 0 <= oi < out_h and 0 <= oj < out_w:
                                 val = scalar.add(
                                     val,
                                     scalar.multiply(
-                                        delta[f][di][dj],
-                                        layer.filters[f][c][kh][kw],
+                                        delta[filt][oi][oj],
+                                        layer.filters[filt][ch][kh][kw],
                                     ),
                                 )
-                input_grad[c][i][j] = val
+                input_grad[ch][in_row][in_col] = val
 
     return input_grad, filter_grads, bias_grads

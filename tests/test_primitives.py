@@ -134,6 +134,16 @@ class TestMatrix:
         v = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
         assert matrix.reshape(v, 2, 3) == [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
 
+    def test_tensor3d_flatten(self):
+        t = [[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]]
+        assert matrix.tensor3d_flatten(t) == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+
+    def test_tensor3d_flatten_roundtrip(self):
+        t = [[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], [[7.0, 8.0, 9.0], [10.0, 11.0, 12.0]]]
+        flat = matrix.tensor3d_flatten(t)
+        restored = matrix.tensor3d_reshape(flat, 2, 2, 3)
+        assert restored == t
+
 
 # --- Random ---
 
@@ -192,6 +202,16 @@ class TestActivations:
     def test_relu_derivative(self):
         assert activations.relu_derivative(5.0) == 1.0
         assert activations.relu_derivative(-3.0) == 0.0
+
+    def test_identity(self):
+        assert activations.identity(5.0) == 5.0
+        assert activations.identity(-3.0) == -3.0
+        assert activations.identity(0.0) == 0.0
+
+    def test_identity_derivative(self):
+        assert activations.identity_derivative(5.0) == 1.0
+        assert activations.identity_derivative(-3.0) == 1.0
+        assert activations.identity_derivative(0.0) == 1.0
 
     def test_softmax(self):
         result = activations.softmax([1.0, 2.0, 3.0])

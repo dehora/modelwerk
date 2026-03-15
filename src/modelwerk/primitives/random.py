@@ -28,5 +28,11 @@ def random_matrix(rng: _random.Random, rows: int, cols: int, lo: float = -1.0, h
 
 
 def xavier_init(rng: _random.Random, fan_in: int, fan_out: int) -> Matrix:
+    """Initialize weights scaled to the layer size (Xavier/Glorot uniform).
+
+    Weights drawn from Uniform[-limit, limit] where limit = sqrt(6 / (fan_in + fan_out)).
+    This keeps activations and gradients from exploding or vanishing as they
+    flow through layers — without it, deep networks are nearly impossible to train.
+    """
     limit = math.sqrt(6.0 / (fan_in + fan_out))
     return random_matrix(rng, fan_out, fan_in, -limit, limit)

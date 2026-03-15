@@ -69,10 +69,10 @@ def layer_norm(v: Vector) -> Vector:
     n = len(v)
     mean = vector.sum_all(v) / n
     centered = [scalar.subtract(x, mean) for x in v]
-    variance = vector.sum_all([scalar.multiply(c, c) for c in centered]) / n
-    eps = 1e-5
+    variance = vector.sum_all([scalar.multiply(val, val) for val in centered]) / n
+    eps = 1e-5  # prevents division by zero when variance is tiny
     std_inv = scalar.inverse(scalar.power(scalar.add(variance, eps), 0.5))
-    return [scalar.multiply(c, std_inv) for c in centered]
+    return [scalar.multiply(val, std_inv) for val in centered]
 
 
 def layer_norm_backward(grad_out: Vector, normed_input: Vector, original_input: Vector) -> Vector:
@@ -83,11 +83,16 @@ def layer_norm_backward(grad_out: Vector, normed_input: Vector, original_input: 
         normed_input: the output of layer_norm (the normalized values)
         original_input: the input that was passed to layer_norm
     """
+    # Layer norm has three steps: center (subtract mean), compute variance,
+    # scale by 1/std. The backward pass reverses these, accumulating how
+    # the gradient flows through each step. The d_ prefix means "gradient
+    # with respect to" — e.g. d_variance is how much the loss changes
+    # when variance changes.
     n = len(grad_out)
     mean = vector.sum_all(original_input) / n
     centered = [scalar.subtract(x, mean) for x in original_input]
-    variance = vector.sum_all([scalar.multiply(c, c) for c in centered]) / n
-    eps = 1e-5
+    variance = vector.sum_all([scalar.multiply(val, val) for val in centered]) / n
+    eps = 1e-5  # prevents division by zero when variance is tiny
     std_inv = scalar.inverse(scalar.power(scalar.add(variance, eps), 0.5))
 
     # d_centered = grad_out * std_inv
@@ -96,33 +101,35 @@ def layer_norm_backward(grad_out: Vector, normed_input: Vector, original_input: 
     # d_variance = sum(grad_out * centered * -0.5 * (var + eps)^(-3/2))
     d_variance = 0.0
     var_factor = scalar.multiply(-0.5, scalar.power(scalar.add(variance, eps), -1.5))
-    for i in range(n):
+    for dim in range(n):
         d_variance = scalar.add(d_variance,
-                                scalar.multiply(grad_out[i],
-                                                scalar.multiply(centered[i], var_factor)))
+                                scalar.multiply(grad_out[dim],
+                                                scalar.multiply(centered[dim], var_factor)))
 
     # d_mean = sum(-d_centered) + d_variance * sum(-2 * centered) / n
     d_mean = 0.0
-    for i in range(n):
-        d_mean = scalar.subtract(d_mean, d_centered[i])
+    for dim in range(n):
+        d_mean = scalar.subtract(d_mean, d_centered[dim])
     sum_centered = vector.sum_all(centered)
     d_mean = scalar.add(d_mean,
                         scalar.multiply(d_variance, scalar.multiply(-2.0 / n, sum_centered)))
 
     # d_input = d_centered + d_variance * 2 * centered / n + d_mean / n
     d_input = []
-    for i in range(n):
-        di = scalar.add(d_centered[i],
-                        scalar.add(scalar.multiply(d_variance,
-                                                   scalar.multiply(2.0 / n, centered[i])),
-                                   d_mean / n))
-        d_input.append(di)
+    for dim in range(n):
+        grad = scalar.add(d_centered[dim],
+                          scalar.add(scalar.multiply(d_variance,
+                                                     scalar.multiply(2.0 / n, centered[dim])),
+                                     d_mean / n))
+        d_input.append(grad)
     return d_input
 
 
 def softmax(v: Vector) -> Vector:
     """Convert a vector of scores into probabilities that sum to 1."""
-    m = vector.max_val(v)
-    exps = [scalar.exp(scalar.subtract(x, m)) for x in v]
+    # Subtract max for numerical stability — prevents exp() overflow
+    # while producing identical probabilities (the math cancels out).
+    max_score = vector.max_val(v)
+    exps = [scalar.exp(scalar.subtract(x, max_score)) for x in v]
     total = vector.sum_all(exps)
     return [scalar.multiply(e, scalar.inverse(total)) for e in exps]

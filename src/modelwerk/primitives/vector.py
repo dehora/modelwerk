@@ -28,15 +28,17 @@ def scale(c: float, v: Vector) -> Vector:
     return [scalar.multiply(c, x) for x in v]
 
 
-def elementwise(f, a: Vector, b: Vector) -> Vector:
-    return [f(a[i], b[i]) for i in range(len(a))]
+def elementwise(fn, a: Vector, b: Vector) -> Vector:
+    return [fn(a[i], b[i]) for i in range(len(a))]
 
 
-def apply(f, v: Vector) -> Vector:
-    return [f(x) for x in v]
+def apply(fn, v: Vector) -> Vector:
+    return [fn(x) for x in v]
 
 
 def magnitude(v: Vector) -> float:
+    """Length of a vector — the Euclidean norm."""
+    # sqrt(v · v) gives the length (Pythagorean theorem in N dimensions)
     return scalar.power(dot(v, v), 0.5)
 
 

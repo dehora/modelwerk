@@ -29,8 +29,8 @@ def create_network(rng, layer_sizes: list[int], activation_fns: list) -> Network
     activation_fns: one per layer (len = len(layer_sizes) - 1)
     """
     layers = []
-    for i in range(len(layer_sizes) - 1):
-        layer = create_dense(rng, layer_sizes[i], layer_sizes[i + 1])
+    for layer_idx in range(len(layer_sizes) - 1):
+        layer = create_dense(rng, layer_sizes[layer_idx], layer_sizes[layer_idx + 1])
         layers.append(layer)
     return Network(layers=layers, activation_fns=activation_fns)
 

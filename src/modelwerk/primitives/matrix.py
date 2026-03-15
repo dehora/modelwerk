@@ -23,7 +23,7 @@ def transpose(M: Matrix) -> Matrix:
     if not M:
         return []
     rows, cols = len(M), len(M[0])
-    return [[M[r][c] for r in range(rows)] for c in range(cols)]
+    return [[M[row][col] for row in range(rows)] for col in range(cols)]
 
 
 def outer(a: Vector, b: Vector) -> Matrix:
@@ -35,7 +35,7 @@ def zeros(rows: int, cols: int) -> Matrix:
 
 
 def add(A: Matrix, B: Matrix) -> Matrix:
-    return [vector.add(A[r], B[r]) for r in range(len(A))]
+    return [vector.add(A[row], B[row]) for row in range(len(A))]
 
 
 def scale(c: float, M: Matrix) -> Matrix:
@@ -50,7 +50,7 @@ def flatten(M: Matrix) -> Vector:
 
 
 def reshape(v: Vector, rows: int, cols: int) -> Matrix:
-    return [v[r * cols:(r + 1) * cols] for r in range(rows)]
+    return [v[row * cols:(row + 1) * cols] for row in range(rows)]
 
 
 # --- 3D tensor operations (channels × height × width) ---
@@ -63,10 +63,10 @@ def tensor3d_zeros(channels: int, height: int, width: int) -> Tensor3D:
     return [[[0.0] * width for _ in range(height)] for _ in range(channels)]
 
 
-def tensor3d_flatten(t: Tensor3D) -> Vector:
+def tensor3d_flatten(tensor: Tensor3D) -> Vector:
     """Flatten a 3D tensor (C × H × W) into a 1D vector."""
     result: Vector = []
-    for channel in t:
+    for channel in tensor:
         for row in channel:
             result.extend(row)
     return result
@@ -74,12 +74,12 @@ def tensor3d_flatten(t: Tensor3D) -> Vector:
 
 def tensor3d_reshape(v: Vector, channels: int, height: int, width: int) -> Tensor3D:
     """Reshape a vector back into a 3D tensor (C × H × W)."""
-    t: Tensor3D = []
-    idx = 0
+    tensor: Tensor3D = []
+    offset = 0
     for _ in range(channels):
         channel = []
         for _ in range(height):
-            channel.append(v[idx:idx + width])
-            idx += width
-        t.append(channel)
-    return t
+            channel.append(v[offset:offset + width])
+            offset += width
+        tensor.append(channel)
+    return tensor

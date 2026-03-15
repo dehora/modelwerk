@@ -13,7 +13,7 @@ from modelwerk.models.lenet5 import (
 )
 from modelwerk.models.transformer import (
     create_transformer_lm, transformer_forward, transformer_backward,
-    transformer_sgd_update,
+    transformer_sgd_update, generate,
 )
 from modelwerk.data.generators import and_gate, or_gate, nand_gate, xor_gate
 from modelwerk.data.text import build_vocab, prepare_sequences
@@ -234,3 +234,47 @@ class TestTransformer:
         assert len(inputs[0]) == 4
         # Target is shifted by 1
         assert inputs[0][1:] == targets[0][:3]
+
+    def test_generate_greedy(self):
+        """Greedy generation should produce deterministic output."""
+        rng = create_rng(42)
+        vocab_size = 5
+        model = create_transformer_lm(rng, vocab_size=vocab_size, d_model=8,
+                                       num_heads=2, ff_dim=16, seq_len=4)
+        id_to_char = {0: "a", 1: "b", 2: "c", 3: "d", 4: "e"}
+        text1, attn1 = generate(model, [0, 1, 2, 3], length=5, id_to_char=id_to_char)
+        text2, attn2 = generate(model, [0, 1, 2, 3], length=5, id_to_char=id_to_char)
+        # Greedy should be deterministic
+        assert text1 == text2
+        # Output length = prompt (4) + generated (5) = 9 chars
+        assert len(text1) == 9
+        # Should return attention weights
+        assert len(attn1) > 0
+
+    def test_generate_with_sampling(self):
+        """Sampled generation with same seed should be reproducible."""
+        rng = create_rng(42)
+        vocab_size = 5
+        model = create_transformer_lm(rng, vocab_size=vocab_size, d_model=8,
+                                       num_heads=2, ff_dim=16, seq_len=4)
+        id_to_char = {0: "a", 1: "b", 2: "c", 3: "d", 4: "e"}
+        text1, _ = generate(model, [0, 1, 2, 3], length=5, id_to_char=id_to_char,
+                            temperature=0.8, rng=create_rng(123))
+        text2, _ = generate(model, [0, 1, 2, 3], length=5, id_to_char=id_to_char,
+                            temperature=0.8, rng=create_rng(123))
+        assert text1 == text2
+        assert len(text1) == 9
+
+    def test_generate_temperature(self):
+        """Temperature should affect the output distribution."""
+        rng = create_rng(42)
+        vocab_size = 5
+        model = create_transformer_lm(rng, vocab_size=vocab_size, d_model=8,
+                                       num_heads=2, ff_dim=16, seq_len=4)
+        id_to_char = {0: "a", 1: "b", 2: "c", 3: "d", 4: "e"}
+        # Very low temperature should behave like greedy
+        text_cold, _ = generate(model, [0, 1, 2, 3], length=5, id_to_char=id_to_char,
+                                temperature=0.01, rng=create_rng(99))
+        text_greedy, _ = generate(model, [0, 1, 2, 3], length=5, id_to_char=id_to_char)
+        # With very low temperature, sampling should approximate greedy
+        assert text_cold == text_greedy

@@ -25,5 +25,5 @@ def create_neuron(weight_init, num_inputs: int) -> Neuron:
 
 
 def forward(neuron: Neuron, inputs: Vector, activation_fn) -> float:
-    z = scalar.add(vector.dot(neuron.weights, inputs), neuron.bias)
+    z = scalar.add(vector.dot(neuron.weights, inputs), neuron.bias)  # pre-activation
     return activation_fn(z)

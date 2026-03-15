@@ -41,16 +41,16 @@ def avg_pool_forward(
 
     output = tensor3d_zeros(channels, out_h, out_w)
 
-    for c in range(channels):
-        for i in range(out_h):
-            for j in range(out_w):
+    for ch in range(channels):
+        for out_row in range(out_h):
+            for out_col in range(out_w):
                 total = 0.0
-                for ph in range(pool_size):
-                    for pw in range(pool_size):
+                for pool_row in range(pool_size):
+                    for pool_col in range(pool_size):
                         total = scalar.add(
-                            total, inputs[c][i * stride + ph][j * stride + pw]
+                            total, inputs[ch][out_row * stride + pool_row][out_col * stride + pool_col]
                         )
-                output[c][i][j] = scalar.multiply(total, scalar.inverse(area))
+                output[ch][out_row][out_col] = scalar.multiply(total, scalar.inverse(area))
 
     cache = PoolCache(in_channels=channels, in_height=in_h, in_width=in_w)
     return output, cache
@@ -73,18 +73,20 @@ def avg_pool_backward(
 
     input_grad = tensor3d_zeros(channels, cache.in_height, cache.in_width)
 
-    for c in range(channels):
-        for i in range(out_h):
-            for j in range(out_w):
+    for ch in range(channels):
+        for out_row in range(out_h):
+            for out_col in range(out_w):
+                # Each input contributed equally (via averaging), so split
+                # the gradient equally among all inputs in the window.
                 distributed = scalar.multiply(
-                    output_grad[c][i][j], scalar.inverse(area)
+                    output_grad[ch][out_row][out_col], scalar.inverse(area)
                 )
-                for ph in range(pool_size):
-                    for pw in range(pool_size):
-                        row = i * stride + ph
-                        col = j * stride + pw
-                        input_grad[c][row][col] = scalar.add(
-                            input_grad[c][row][col], distributed
+                for pool_row in range(pool_size):
+                    for pool_col in range(pool_size):
+                        in_row = out_row * stride + pool_row
+                        in_col = out_col * stride + pool_col
+                        input_grad[ch][in_row][in_col] = scalar.add(
+                            input_grad[ch][in_row][in_col], distributed
                         )
 
     return input_grad

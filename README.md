@@ -83,7 +83,7 @@ uv run pytest tests/
 
 Lessons 1 and 2 run in seconds. Lessons 3 and 4 take a few minutes — this is pure Python doing real training, not a demo. If it seems hung, it's not — the progress bar shows where you are.
 
-Lessons print narrative text, training output, and decision boundaries to the terminal. Matplotlib plots are saved to `output/`. Reference outputs from completed runs are in `examples/` so you can see results without running the code.
+Lessons print narrative text, training output, and decision boundaries to the terminal. Matplotlib plots are saved to `output/`. Annotated transcripts of each lesson are in `examples/` so you can see results without running the code.
 
 ## Project structure
 
@@ -126,7 +126,7 @@ src/modelwerk/
     attention_maps.py   Attention pattern visualization
 
 lessons/              Runnable scripts — one per paper
-examples/             Reference outputs (plots, screenshots) from completed runs
+examples/             Annotated lesson transcripts and reference plots
 tests/                Unit tests for primitives, building blocks, and models
 ```
 
