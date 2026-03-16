@@ -246,8 +246,11 @@ The key innovations:
   Loss: certainty-based (min-loss tick + max-certainty tick)
 
   The learning rate is tiny because gradients flow through {T} ticks of
-  the inner loop — similar to a {T}-layer-deep network. Without a very
-  small step size the accumulated gradients blow up and training diverges.
+  the inner loop — similar to a {T}-layer-deep network. This is
+  backpropagation through time (BPTT): the tick chain is structurally
+  identical to an unrolled RNN, and the backward pass must reverse
+  through every tick. Without a very small step size the accumulated
+  gradients blow up and training diverges.
 
   Optimizer: AdamW (adaptive learning rates per parameter)
 
@@ -415,6 +418,8 @@ What the CTM introduces:
 
 The CTM composes everything from prior lessons:
   - The synapse model is an MLP (Lesson 2)
+  - The {d_model} NLMs are each their own tiny MLP (Lesson 2 again —
+    backprop is doing triple duty: synapse, NLMs, and output)
   - Cross-attention reads the input (Lesson 4)
   - The tick loop is the new idea
 

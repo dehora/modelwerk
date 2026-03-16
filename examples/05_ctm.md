@@ -88,7 +88,7 @@ Internal ticks: 20 per sample
 Loss: certainty-based (min-loss tick + max-certainty tick)
 ```
 
-The learning rate is tiny because gradients flow through 20 ticks of the inner loop — similar to a 20-layer-deep network. Without a very small step size the accumulated gradients blow up and training diverges.
+The learning rate is tiny because gradients flow through 20 ticks of the inner loop — similar to a 20-layer-deep network. This is backpropagation through time (BPTT): the tick chain is structurally identical to an unrolled RNN, and the backward pass must reverse through every tick, accumulating gradients along the way. Without a very small step size the accumulated gradients blow up and training diverges.
 
 **Optimizer: AdamW** (adaptive learning rates per parameter)
 
@@ -168,6 +168,8 @@ seq 4: target=0, t1=19, t2=19, certainty@best=0.384
 
 Notice how t1 (best-loss tick) and t2 (most-certain tick) agree — the model's most accurate tick is also its most confident. For some samples the best tick is t=0 (the model "knows" early), for others it's t=19 (needs all 20 thinking steps). This is adaptive compute emerging from the certainty-based loss, without any explicit halting mechanism.
 
+The certainty values are low in absolute terms — 0.384 at best for a model getting 90% accuracy. The model doesn't need to be "confident" in an absolute sense; it just needs its most-certain tick to be more certain than the others. Certainty here is relative, not a calibrated probability. Don't expect softmax-style 0.95+ confidence — the loss optimizes for the right tick to be the best tick, not for that tick to be near-certain.
+
 ## Part 5: Adaptive Compute
 
 The certainty heatmap shows how the model's confidence evolves across the 20 internal ticks for each test sample. Brighter colors mean higher certainty.
@@ -209,6 +211,7 @@ The transformer (Lesson 4) processes a sequence in one pass: each position atten
 The CTM composes everything from prior lessons:
 
 - The synapse model is an MLP (Lesson 2)
+- The 32 NLMs are each their own tiny MLP (Lesson 2 again — backprop is doing triple duty: synapse, NLMs, and output projection)
 - Cross-attention reads the input (Lesson 4)
 - The tick loop is the new idea
 
