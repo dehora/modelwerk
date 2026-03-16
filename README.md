@@ -66,7 +66,7 @@ uv run python lessons/04_transformer.py
 
 Darlow et al. reintroduce neural timing as a core computational principle. The CTM gives each neuron its own temporal dynamics via neuron-level models (NLMs) with private weights, and uses neural synchronization — temporal correlations between neurons — as the latent representation. The lesson trains a CTM on the parity task, showing loss decreasing as the model learns to iteratively refine its answer across internal "thought steps."
 
-**Concepts introduced:** internal time dimension, neuron-level models (NLMs), neural synchronization, recursive weighted dot products, certainty-based loss, adaptive compute, backpropagation through time (BPTT), SiLU activation.
+**Concepts introduced:** internal time dimension, neuron-level models (NLMs), neural synchronization, recursive weighted dot products, certainty-based loss, adaptive compute, backpropagation through time (BPTT), AdamW optimizer, SiLU activation.
 
 ```
 uv run python lessons/05_ctm.py
