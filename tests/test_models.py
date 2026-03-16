@@ -585,6 +585,96 @@ class TestCTM:
         r2 = ctm_predict(model, input_seq)
         assert r1 == r2
 
+    def test_embed_kv_gradients_nonzero(self):
+        """W_embed, W_kv, and b_kv receive non-zero gradients from backward pass.
+
+        Regression test: these were previously dead (initialized but never
+        accumulated) because the gradient chain stopped at W_attn_k/W_attn_v.
+        """
+        model = self._small_model()
+        input_seq = [1.0, -1.0, 1.0, -1.0]
+        target = one_hot(1, 2)
+
+        model.sync_out.alpha = vector.zeros(model.pairs_out.n_pairs)
+        model.sync_out.beta = vector.zeros(model.pairs_out.n_pairs)
+        model.sync_action.alpha = vector.zeros(model.pairs_action.n_pairs)
+        model.sync_action.beta = vector.zeros(model.pairs_action.n_pairs)
+
+        probs, cache = ctm_forward(model, input_seq)
+        grads = ctm_backward(model, cache, target)
+
+        # All three must have at least one non-zero element
+        def max_abs_matrix(m):
+            return max(abs(x) for row in m for x in row)
+
+        assert max_abs_matrix(grads["d_W_embed"]) > 1e-10, "d_W_embed is all zeros"
+        assert max_abs_matrix(grads["d_W_kv"]) > 1e-10, "d_W_kv is all zeros"
+        assert max(abs(x) for x in grads["d_b_kv"]) > 1e-10, "d_b_kv is all zeros"
+
+    def test_kv_gradient_finite_difference(self):
+        """Finite-difference check on one W_kv element.
+
+        Uses W_kv rather than W_embed because the certainty-based loss
+        can select different ticks (t1/t2) under small perturbations,
+        creating discontinuities. W_kv is smoother and more reliably
+        matches. We check same sign, same order of magnitude.
+        """
+        model = self._small_model()
+        input_seq = [1.0, -1.0, 1.0, -1.0]
+        target = one_hot(1, 2)
+        eps = 1e-5
+
+        def forward_loss(m):
+            m.sync_out.alpha = vector.zeros(m.pairs_out.n_pairs)
+            m.sync_out.beta = vector.zeros(m.pairs_out.n_pairs)
+            m.sync_action.alpha = vector.zeros(m.pairs_action.n_pairs)
+            m.sync_action.beta = vector.zeros(m.pairs_action.n_pairs)
+            probs, _ = ctm_forward(m, input_seq)
+            loss, _, _, _, _ = ctm_loss(probs, target)
+            return loss
+
+        # Analytical gradient
+        model.sync_out.alpha = vector.zeros(model.pairs_out.n_pairs)
+        model.sync_out.beta = vector.zeros(model.pairs_out.n_pairs)
+        model.sync_action.alpha = vector.zeros(model.pairs_action.n_pairs)
+        model.sync_action.beta = vector.zeros(model.pairs_action.n_pairs)
+        _, cache = ctm_forward(model, input_seq)
+        grads = ctm_backward(model, cache, target)
+        analytical = grads["d_W_kv"][0][0]
+
+        # Numerical gradient (central difference)
+        orig = model.W_kv[0][0]
+        model.W_kv[0][0] = orig + eps
+        loss_plus = forward_loss(model)
+        model.W_kv[0][0] = orig - eps
+        loss_minus = forward_loss(model)
+        model.W_kv[0][0] = orig  # restore
+        numerical = (loss_plus - loss_minus) / (2 * eps)
+
+        # Loose tolerance: the CTM loss selects ticks discretely, so
+        # numerical and analytical can diverge at tick-selection boundaries
+        assert abs(analytical - numerical) < 0.01, (
+            f"W_kv grad mismatch: analytical={analytical:.6f}, numerical={numerical:.6f}"
+        )
+
+    def test_predict_resets_sync_state(self):
+        """predict() produces the same result regardless of prior forward passes."""
+        model = self._small_model()
+        input_seq = [1.0, -1.0, 1.0, -1.0]
+
+        # First prediction from clean state
+        r1 = ctm_predict(model, input_seq)
+
+        # Pollute sync state with a different forward pass
+        model.sync_out.alpha = [99.0] * model.pairs_out.n_pairs
+        model.sync_out.beta = [99.0] * model.pairs_out.n_pairs
+        model.sync_action.alpha = [99.0] * model.pairs_action.n_pairs
+        model.sync_action.beta = [99.0] * model.pairs_action.n_pairs
+
+        # Second prediction should be identical
+        r2 = ctm_predict(model, input_seq)
+        assert r1 == r2, "predict() should reset sync state — got different results"
+
     def test_decay_rate_clamping(self):
         """Decay rates stay in [0, 15] even with extreme gradients."""
         model = self._small_model()

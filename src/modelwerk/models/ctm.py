@@ -1647,8 +1647,16 @@ def predict(model: CTM, input_seq: list[float]) -> int:
     Runs a full forward pass (T ticks), then selects the tick with
     lowest entropy (highest certainty) and returns its argmax prediction.
 
+    Resets sync state before each call so predictions are independent
+    of prior forward passes.
+
     Returns predicted class index (int).
     """
+    # Reset sync accumulators so each prediction starts from a clean slate
+    model.sync_out.alpha = vector.zeros(model.pairs_out.n_pairs)
+    model.sync_out.beta = vector.zeros(model.pairs_out.n_pairs)
+    model.sync_action.alpha = vector.zeros(model.pairs_action.n_pairs)
+    model.sync_action.beta = vector.zeros(model.pairs_action.n_pairs)
     per_tick_probs, _ = ctm_forward(model, input_seq)
     # Use the most certain tick's prediction
     num_classes = len(per_tick_probs[0])
