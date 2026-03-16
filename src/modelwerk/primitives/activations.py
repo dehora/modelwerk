@@ -61,6 +61,18 @@ def silu_derivative(x: float) -> float:
     return scalar.add(s, scalar.multiply(x, scalar.multiply(s, scalar.subtract(1.0, s))))
 
 
+def softplus(x: float) -> float:
+    """log(1 + exp(x)), clamped for large x. Keeps Δ positive in Mamba."""
+    if x > 20.0:
+        return x
+    return scalar.log(scalar.add(1.0, scalar.exp(x)))
+
+
+def softplus_derivative(x: float) -> float:
+    """Derivative of softplus: sigmoid(x)."""
+    return sigmoid(x)
+
+
 def identity(x: float) -> float:
     """Pass-through activation — no transformation."""
     return x

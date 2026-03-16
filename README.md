@@ -13,6 +13,7 @@ The project follows five landmark papers chronologically, each one building on t
 | 03 | LeCun et al., "Gradient-based learning applied to document recognition" | 1998 | LeNet-5 (CNN) | ~3 min | Done |
 | 04 | Vaswani et al., "Attention Is All You Need" | 2017 | Transformer | ~5 min | Done |
 | 05 | Darlow et al., "Continuous Thought Machines" | 2025 | CTM | ~5 min | Done |
+| 06 | Gu & Dao, "Mamba: Linear-Time Sequence Modeling with Selective State Spaces" | 2023 | Mamba | ~5 min | Done |
 
 ## Why
 
@@ -72,6 +73,16 @@ Darlow et al. reintroduce neural timing as a core computational principle. The C
 uv run python lessons/05_ctm.py
 ```
 
+### Lesson 6: Mamba (2023)
+
+Gu & Dao replaced attention with a selective state space model — maintaining a compressed running state that gets updated at each position in O(L) time. The selection mechanism makes B, C, and Delta input-dependent, so the model decides per-token what to remember. The lesson trains Mamba on selective copying, where data tokens appear at random positions and must be recalled in order after a marker.
+
+**Concepts introduced:** state space models, discretization (Euler), input-dependent selection, Delta as a gate, depthwise convolution, causal recurrence, linear-time sequence modeling.
+
+```
+uv run python lessons/06_mamba.py
+```
+
 ## Running
 
 Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
@@ -83,6 +94,7 @@ uv run python lessons/02_mlp.py           # ~10 seconds
 uv run python lessons/03_lenet5.py        # ~3 minutes
 uv run python lessons/04_transformer.py   # ~5 minutes
 uv run python lessons/05_ctm.py          # ~5 minutes
+uv run python lessons/06_mamba.py         # ~5 minutes
 
 # Run tests
 uv run pytest tests/
@@ -121,9 +133,10 @@ src/modelwerk/
     lenet5.py           Convolutional network for image recognition
     transformer.py      Self-attention network
     ctm.py              Continuous thought machine
+    mamba.py            Selective state space model
 
   data/               Dataset generation and loading
-    generators.py       XOR, circles, parity
+    generators.py       XOR, circles, parity, selective copying
     mnist.py            MNIST digit loading
     text.py             Text tokenization
 

@@ -21,7 +21,13 @@ from modelwerk.models.ctm import (
     predict as ctm_predict, train as ctm_train,
     _sync_update,
 )
-from modelwerk.data.generators import and_gate, or_gate, nand_gate, xor_gate, parity
+from modelwerk.models.mamba import (
+    create_mamba_lm, mamba_forward, mamba_backward, _create_adamw_state,
+    _mamba_adamw_update, _clip_grad_norm as mamba_clip_grad_norm,
+    predict as mamba_predict, train as mamba_train,
+)
+from modelwerk.primitives.activations import softplus, softplus_derivative
+from modelwerk.data.generators import and_gate, or_gate, nand_gate, xor_gate, parity, selective_copying
 from modelwerk.data.text import build_vocab, prepare_sequences
 from modelwerk.primitives import vector
 
@@ -703,3 +709,125 @@ class TestCTM:
         for i in range(model.pairs_action.n_pairs):
             assert model.sync_action.decay_rates[i] <= 15.0
             assert model.sync_action.decay_rates[i] >= 0.0
+
+
+class TestMamba:
+    """Tests for Mamba selective state space model."""
+
+    @staticmethod
+    def _small_model(seed=42):
+        rng = create_rng(seed)
+        return create_mamba_lm(
+            rng, vocab_size=8, d_model=8, d_inner=16,
+            d_state=4, d_conv=2, dt_rank=4, seq_len=8,
+        )
+
+    def test_create_mamba(self):
+        model = self._small_model()
+        assert model.vocab_size == 8
+        assert model.d_model == 8
+        assert model.d_inner == 16
+        assert model.d_state == 4
+        assert len(model.embedding) == 8
+        assert len(model.embedding[0]) == 8
+        assert len(model.block.in_proj) == 32  # 2*d_inner
+        assert len(model.block.ssm.A_log) == 16  # d_inner
+        assert len(model.block.ssm.A_log[0]) == 4  # d_state
+
+    def test_forward_output_shape(self):
+        model = self._small_model()
+        probs, cache = mamba_forward(model, [0, 1, 2, 3])
+        assert len(probs) == 4
+        assert len(probs[0]) == 8  # vocab_size
+
+    def test_softmax_sums_to_one(self):
+        model = self._small_model()
+        probs, _ = mamba_forward(model, [0, 1, 2, 3, 5, 6, 7, 2])
+        for p in probs:
+            assert abs(sum(p) - 1.0) < 1e-5
+
+    def test_loss_decreases(self):
+        model = self._small_model()
+        inp = [0, 3, 0, 0, 2, 1, 3, 2]
+        tgt = [0, 0, 0, 0, 0, 0, 3, 2]
+        target_onehots = [one_hot(t, 8) for t in tgt]
+
+        probs1, cache1 = mamba_forward(model, inp)
+        loss1 = sum(cross_entropy(probs1[t], target_onehots[t]) for t in range(8)) / 8
+
+        for _ in range(5):
+            probs, cache = mamba_forward(model, inp)
+            grads = mamba_backward(model, cache, target_onehots)
+            mamba_clip_grad_norm(grads, 1.0)
+            step = 1
+            m_state, v_state = _create_adamw_state(grads)
+            _mamba_adamw_update(model, grads, m_state, v_state, 0.001, step)
+
+        probs2, _ = mamba_forward(model, inp)
+        loss2 = sum(cross_entropy(probs2[t], target_onehots[t]) for t in range(8)) / 8
+        assert loss2 < loss1, f"Loss should decrease: {loss1:.4f} -> {loss2:.4f}"
+
+    def test_reproducibility(self):
+        m1 = self._small_model(42)
+        m2 = self._small_model(42)
+        p1, _ = mamba_forward(m1, [0, 1, 2, 3])
+        p2, _ = mamba_forward(m2, [0, 1, 2, 3])
+        assert p1 == p2
+
+    def test_selective_copying_generator(self):
+        rng = create_rng(42)
+        inputs, targets = selective_copying(rng, seq_len=16, n_copy=3, vocab_size=8, n_samples=5)
+        assert len(inputs) == 5
+        assert len(targets) == 5
+        assert len(inputs[0]) == 16
+        assert len(targets[0]) == 16
+        marker_pos = 16 - 3 - 1  # 12
+        for inp, tgt in zip(inputs, targets):
+            # Marker at correct position
+            assert inp[marker_pos] == 1
+            # Target blanks before marker
+            for i in range(marker_pos + 1):
+                assert tgt[i] == 0
+            # Data tokens in target match those in input
+            data_in = [inp[i] for i in range(marker_pos) if inp[i] >= 2]
+            data_out = [tgt[i] for i in range(marker_pos + 1, 16) if tgt[i] >= 2]
+            assert data_in == data_out
+            assert len(data_in) == 3
+
+    def test_ssm_recurrence(self):
+        """Manual 2-step check of the SSM recurrence."""
+        import math
+        model = self._small_model()
+        probs, cache = mamba_forward(model, [2, 3])
+
+        d_inner = model.d_inner
+        d_state = model.d_state
+
+        # Step 0: h[1] = A_bar[0] * h[0] + B_bar[0] * x[0]
+        # h[0] is all zeros, so h[1] = B_bar[0] * x[0]
+        for d in range(d_inner):
+            for n in range(d_state):
+                expected = cache.B_bar[0][d][n] * cache.conv_silu_out[0][d]
+                assert abs(cache.h_states[1][d][n] - expected) < 1e-10
+
+        # Step 1: h[2] = A_bar[1] * h[1] + B_bar[1] * x[1]
+        for d in range(d_inner):
+            for n in range(d_state):
+                expected = (cache.A_bar[1][d][n] * cache.h_states[1][d][n]
+                            + cache.B_bar[1][d][n] * cache.conv_silu_out[1][d])
+                assert abs(cache.h_states[2][d][n] - expected) < 1e-10
+
+    def test_softplus(self):
+        import math
+        # softplus(0) = log(2)
+        assert abs(softplus(0.0) - math.log(2.0)) < 1e-10
+        # For large x, softplus(x) ≈ x
+        assert abs(softplus(25.0) - 25.0) < 1e-10
+        # softplus is always positive
+        assert softplus(-5.0) > 0.0
+
+    def test_softplus_derivative(self):
+        # softplus'(0) = sigmoid(0) = 0.5
+        assert abs(softplus_derivative(0.0) - 0.5) < 1e-10
+        # softplus'(large) → 1
+        assert abs(softplus_derivative(20.0) - 1.0) < 1e-6

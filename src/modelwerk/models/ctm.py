@@ -1679,14 +1679,15 @@ def predict(model: CTM, input_seq: list[float]) -> int:
 
 
 def train(
-    model: CTM, 
-    data: list[list[float]], 
+    model: CTM,
+    data: list[list[float]],
     targets: list[list[float]],
-    learning_rate: float = 0.001, 
-    epochs: int = 10, 
+    learning_rate: float = 0.001,
+    epochs: int = 10,
     max_norm: float = 1.0,
-    optimizer: str = "sgd", 
+    optimizer: str = "sgd",
     weight_decay: float = 0.01,
+    train_embeddings: bool = False,
 ) -> list[float]:
     """Train the CTM on parity data.
 
@@ -1709,6 +1710,10 @@ def train(
       CTM works much better with AdamW because its parameter groups
       (decay rates, NLMs, synapse, attention) have very different scales.
     weight_decay:   AdamW weight decay coefficient (ignored for SGD)
+    train_embeddings: whether to update W_embed, W_kv, and b_kv.
+      Frozen embeddings act as implicit regularization on small datasets —
+      W_attn_k/W_attn_v compensate by learning to produce useful keys/values
+      from the fixed projections. Enable for larger training sets.
 
     Returns list of average losses per epoch.
     """
@@ -1746,6 +1751,18 @@ def train(
 
             # Backward
             grads = ctm_backward(model, cache, target_vec)
+
+            # Frozen embeddings act as implicit regularization on small
+            # datasets — W_attn_k/W_attn_v compensate by learning to
+            # produce useful keys/values from the fixed projections.
+            # Enable train_embeddings for larger training sets.
+            if not train_embeddings:
+                grads["d_W_embed"] = [[0.0] * len(grads["d_W_embed"][0])
+                                      for _ in range(len(grads["d_W_embed"]))]
+                grads["d_W_kv"] = [[0.0] * len(grads["d_W_kv"][0])
+                                   for _ in range(len(grads["d_W_kv"]))]
+                grads["d_b_kv"] = [0.0] * len(grads["d_b_kv"])
+
             _clip_grad_norm(grads, max_norm)
 
             # Update

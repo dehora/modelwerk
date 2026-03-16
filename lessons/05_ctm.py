@@ -270,6 +270,18 @@ The key innovations:
   recurrent gradient flow that can explode, but AdamW's per-parameter
   scaling handles this naturally.
 
+  Frozen embeddings: the input embeddings (W_embed, W_kv, b_kv) are
+  frozen during training. The backward pass computes their gradients
+  correctly, but we zero them before the optimizer step. Why? With
+  only {n_train} training samples and ~5,800 parameters, unfreezing the
+  embeddings lets the model memorize the training set — loss drops
+  to 0.1 but test accuracy falls from 90% to 40%. The frozen
+  embeddings act as implicit regularization: W_attn_k and W_attn_v
+  must learn to produce useful keys and values from the fixed
+  projections, which forces them to find patterns that generalize.
+  This is a common tradeoff — more complete gradients aren't always
+  better when data is scarce.
+
   Training (this takes a few minutes in pure Python)...
 """)
 
