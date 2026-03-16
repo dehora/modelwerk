@@ -12,7 +12,7 @@ The project follows five landmark papers chronologically, each one building on t
 | 02 | Rumelhart, Hinton & Williams, "Learning representations by back-propagating errors" | 1986 | Multi-layer perceptron | ~10s | Done |
 | 03 | LeCun et al., "Gradient-based learning applied to document recognition" | 1998 | LeNet-5 (CNN) | ~3 min | Done |
 | 04 | Vaswani et al., "Attention Is All You Need" | 2017 | Transformer | ~5 min | Done |
-| 05 | Darlow et al., "Continuous Thought Machines" | 2025 | CTM | — | Planned |
+| 05 | Darlow et al., "Continuous Thought Machines" | 2025 | CTM | ~5 min | Done |
 
 ## Why
 
@@ -64,7 +64,13 @@ uv run python lessons/04_transformer.py
 
 ### Lesson 5: The Continuous Thought Machine (2025)
 
-*Coming soon.* Darlow et al. reintroduce neural timing as a core computational principle. The CTM gives each neuron its own temporal dynamics via neuron-level models (NLMs) with private weights, and uses neural synchronization — temporal correlations between neurons — as the latent representation. Unlike static feedforward or fixed-step recurrent networks, the CTM iterates over an internal time dimension, refining representations across "thought steps" and naturally exhibiting adaptive compute (stopping early on simple inputs, thinking longer on hard ones).
+Darlow et al. reintroduce neural timing as a core computational principle. The CTM gives each neuron its own temporal dynamics via neuron-level models (NLMs) with private weights, and uses neural synchronization — temporal correlations between neurons — as the latent representation. The lesson trains a CTM on the parity task, showing loss decreasing as the model learns to iteratively refine its answer across internal "thought steps."
+
+**Concepts introduced:** internal time dimension, neuron-level models (NLMs), neural synchronization, recursive weighted dot products, certainty-based loss, adaptive compute, backpropagation through time (BPTT), SiLU activation.
+
+```
+uv run python lessons/05_ctm.py
+```
 
 ## Running
 
@@ -76,12 +82,13 @@ uv run python lessons/01_perceptron.py    # ~5 seconds
 uv run python lessons/02_mlp.py           # ~10 seconds
 uv run python lessons/03_lenet5.py        # ~3 minutes
 uv run python lessons/04_transformer.py   # ~5 minutes
+uv run python lessons/05_ctm.py          # ~5 minutes
 
 # Run tests
 uv run pytest tests/
 ```
 
-Lessons 1 and 2 run in seconds. Lessons 3 and 4 take a few minutes — this is pure Python doing real training, not a demo. If it seems hung, it's not — the progress bar shows where you are.
+Lessons 1 and 2 run in seconds. Lessons 3–5 take a few minutes each — this is pure Python doing real training, not a demo. If it seems hung, it's not — the progress bar shows where you are.
 
 Lessons print narrative text, training output, and decision boundaries to the terminal. Matplotlib plots are saved to `output/`. Annotated transcripts of each lesson are in `examples/` so you can see results without running the code.
 
@@ -93,7 +100,7 @@ src/modelwerk/
     scalar.py           Addition, multiplication, exp, log — the atoms
     vector.py           Dot product, element-wise ops, norms
     matrix.py           Matrix multiply, transpose, outer product
-    activations.py      Step, sigmoid, tanh, ReLU, softmax, layer norm + derivatives
+    activations.py      Step, sigmoid, tanh, ReLU, SiLU, softmax, layer norm + derivatives
     losses.py           MSE, cross-entropy + derivatives
     random.py           Seeded RNG for reproducibility
 
@@ -113,9 +120,10 @@ src/modelwerk/
     mlp.py              Multi-layer perceptron with backprop
     lenet5.py           Convolutional network for image recognition
     transformer.py      Self-attention network
+    ctm.py              Continuous thought machine
 
   data/               Dataset generation and loading
-    generators.py       XOR, circles, spirals, moons
+    generators.py       XOR, circles, parity
     mnist.py            MNIST digit loading
     text.py             Text tokenization
 

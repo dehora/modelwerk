@@ -213,6 +213,23 @@ class TestActivations:
         assert activations.identity_derivative(-3.0) == 1.0
         assert activations.identity_derivative(0.0) == 1.0
 
+    def test_silu(self):
+        # silu(0) = 0 * sigmoid(0) = 0 * 0.5 = 0
+        assert abs(activations.silu(0.0)) < 1e-10
+        # silu(x) > 0 for x > 0
+        assert activations.silu(2.0) > 0
+        # silu(x) < 0 for small negative x (non-monotonic)
+        assert activations.silu(-1.0) < 0
+
+    def test_silu_derivative(self):
+        # At x=0: sigmoid(0) + 0 * sigmoid(0) * (1 - sigmoid(0)) = 0.5
+        assert abs(activations.silu_derivative(0.0) - 0.5) < 1e-10
+        # Numerical check at x=1
+        eps = 1e-5
+        numerical = (activations.silu(1.0 + eps) - activations.silu(1.0 - eps)) / (2 * eps)
+        analytical = activations.silu_derivative(1.0)
+        assert abs(numerical - analytical) < 1e-4
+
     def test_softmax(self):
         result = activations.softmax([1.0, 2.0, 3.0])
         # Should sum to 1

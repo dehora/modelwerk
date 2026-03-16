@@ -50,6 +50,17 @@ def relu_derivative(x: float) -> float:
     return 1.0 if x > 0 else 0.0
 
 
+def silu(x: float) -> float:
+    """SiLU (Sigmoid Linear Unit): x * sigmoid(x). Smooth, non-monotonic activation."""
+    return scalar.multiply(x, sigmoid(x))
+
+
+def silu_derivative(x: float) -> float:
+    """Derivative of SiLU: sigmoid(x) + x * sigmoid(x) * (1 - sigmoid(x))."""
+    s = sigmoid(x)
+    return scalar.add(s, scalar.multiply(x, scalar.multiply(s, scalar.subtract(1.0, s))))
+
+
 def identity(x: float) -> float:
     """Pass-through activation — no transformation."""
     return x

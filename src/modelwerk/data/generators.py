@@ -36,6 +36,30 @@ def xor_gate() -> Dataset:
     return inputs, labels
 
 
+def parity(rng, seq_len: int = 16, n_samples: int = 100) -> tuple[list[list[float]], list[list[float]]]:
+    """Random ±1 sequences with cumulative parity targets.
+
+    Each input is a sequence of +1.0 or -1.0 values.
+    Each target is the cumulative parity at each position:
+    +1 if the product of values up to that position is positive, 0 otherwise.
+    """
+    inputs: list[list[float]] = []
+    targets: list[list[float]] = []
+
+    for _ in range(n_samples):
+        seq = [1.0 if rng.random() < 0.5 else -1.0 for _ in range(seq_len)]
+        # Cumulative parity: product of signs up to each position
+        target = []
+        product = 1.0
+        for val in seq:
+            product *= val
+            target.append(1.0 if product > 0 else 0.0)
+        inputs.append(seq)
+        targets.append(target)
+
+    return inputs, targets
+
+
 def circles(rng, n_samples: int = 100, noise: float = 0.1) -> Dataset:
     """Two concentric circles — inner ring is class 1, outer is class 0.
 

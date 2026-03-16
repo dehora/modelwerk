@@ -63,3 +63,8 @@ def max_val(v: Vector) -> float:
         if x > result:
             result = x
     return result
+
+
+def concat(a: Vector, b: Vector) -> Vector:
+    """Concatenate two vectors into one."""
+    return a + b
