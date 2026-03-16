@@ -198,7 +198,9 @@ class CTMCache:
     pre_act_history: list[Vector]   # all pre-activations across ticks
     post_act_history: list[Vector]  # all post-activations across ticks
     embedded_input: Matrix          # (seq_len, d_embed) embedded input sequence
-    kv_input: Matrix                # (seq_len, d_input) projected for KV
+    kv_input: Matrix                # (seq_len, d_input) projected for KV (post layer-norm)
+    kv_pre_norm: Matrix             # (seq_len, d_input) pre-layer-norm KV projections
+    input_indices: list[int]        # (seq_len,) which embedding row each input used (0 or 1)
 
 
 # ---------------------------------------------------------------------------
@@ -541,13 +543,17 @@ def ctm_forward(model: CTM, input_seq: list[float]) -> tuple[list[Vector], CTMCa
     """
     # Embed input: ±1 -> index 0 or 1 -> embedding vector
     embedded: Matrix = []
+    input_indices: list[int] = []
     for val in input_seq:
         idx = 0 if val < 0 else 1
+        input_indices.append(idx)
         embedded.append(list(model.W_embed[idx]))
-    # Project to KV space
+    # Project to KV space (cache pre-norm for backward pass)
+    kv_pre_norm: Matrix = []
     kv_input: Matrix = []
     for emb in embedded:
         proj = vector.add(matrix.mat_vec(model.W_kv, emb), model.b_kv)
+        kv_pre_norm.append(proj)
         kv_input.append(layer_norm(proj))
 
     # Compute keys and values (fixed across ticks)
@@ -665,6 +671,8 @@ def ctm_forward(model: CTM, input_seq: list[float]) -> tuple[list[Vector], CTMCa
         post_act_history=post_act_history,
         embedded_input=embedded,
         kv_input=kv_input,
+        kv_pre_norm=kv_pre_norm,
+        input_indices=input_indices,
     )
     return per_tick_probs, cache
 
@@ -864,6 +872,28 @@ def ctm_backward(model: CTM, cache: CTMCache, target: Vector) -> dict:
             for row in range(model.d_input):
                 for col in range(model.d_input):
                     d_W_attn_v[row][col] += d_V_t[pos][row] * cache.kv_input[pos][col]
+
+            # Continue the chain: kv_input → layer_norm → W_kv @ emb + b_kv → W_embed
+            # d_kv_input = W_attn_k^T @ d_K + W_attn_v^T @ d_V
+            d_kv = vector.add(
+                matrix.mat_vec(matrix.transpose(model.W_attn_k), d_K_t[pos]),
+                matrix.mat_vec(matrix.transpose(model.W_attn_v), d_V_t[pos]),
+            )
+            # Backward through layer norm
+            d_pre_norm = layer_norm_backward(
+                d_kv, cache.kv_input[pos], cache.kv_pre_norm[pos],
+            )
+            # d_W_kv += outer(d_pre_norm, embedded[pos]), d_b_kv += d_pre_norm
+            emb = cache.embedded_input[pos]
+            for row in range(model.d_input):
+                for col in range(model.d_embed):
+                    d_W_kv[row][col] += d_pre_norm[row] * emb[col]
+            d_b_kv = vector.add(d_b_kv, d_pre_norm)
+            # d_emb = W_kv^T @ d_pre_norm → accumulate into d_W_embed
+            d_emb = matrix.mat_vec(matrix.transpose(model.W_kv), d_pre_norm)
+            idx = cache.input_indices[pos]
+            for col in range(model.d_embed):
+                d_W_embed[idx][col] += d_emb[col]
 
         # --- Backward through action sync ---
         d_z_from_sync_action, d_decay_action_t, d_alpha_action_prev, d_beta_action_prev = _sync_backward(
