@@ -103,7 +103,7 @@ Epoch 125: loss=0.0105
 Epoch 150: loss=0.0056
 ```
 
-The training curve is strikingly clean — a smooth, monotonic descent from 0.55 to 0.006 with no instability or loss spikes. Compare this with the CTM's non-monotonic descent and mid-training spike (Lesson 5). The difference reflects the architectures: Mamba's recurrence is a simple linear update `h[t] = A_bar*h[t-1] + B_bar*x[t]` where the gradients flow through element-wise products, making the backward pass stable. The CTM's 20-tick loop with attention, NLMs, and synchronization creates much more complex gradient dynamics.
+The training curve is strikingly clean — a smooth, monotonic descent from 0.55 to 0.006 with no instability or loss spikes. Compare this with the CTM's non-monotonic descent and mid-training spike (Lesson 6). The difference reflects the architectures: Mamba's recurrence is a simple linear update `h[t] = A_bar*h[t-1] + B_bar*x[t]` where the gradients flow through element-wise products, making the backward pass stable. The CTM's 20-tick loop with attention, NLMs, and synchronization creates much more complex gradient dynamics.
 
 The rapid initial descent (0.55 → 0.08 in 25 epochs) suggests the model quickly learns to predict BLANK at most positions — that's the easy part of the loss. The slower convergence from 0.08 → 0.006 is the model refining its selective copying: learning exactly when to spike Delta, what to write into state, and how to read it back out in the correct order.
 
