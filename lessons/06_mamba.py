@@ -66,8 +66,15 @@ while still deciding what to remember? That's Mamba's core idea.
 
 Instead of attention, Mamba maintains a hidden state that gets
 updated at each position. The key innovation: the update rule is
-input-dependent. The parameters B, C, and the discretization step
-Delta are all functions of the current input, so the model can:
+input-dependent. Three parameters control the update:
+
+  B (input selection) — decides what features of the current token
+    get written into the hidden state
+  C (output read) — decides what gets read back from the hidden state
+  Delta (step size) — controls HOW MUCH to write: the volume knob
+    between "remember everything" and "ignore completely"
+
+All three are computed from the current input, so the model can:
 
   - Spike Delta high at important tokens → write them into state
   - Keep Delta low at irrelevant tokens → let them pass through
@@ -193,6 +200,24 @@ patterns like convolutions).
     Embedding: ({vocab_size}, {d_model})                        {embed_p:>6} params
     LM head: ({vocab_size}, {d_model}) + bias                   {head_p:>6} params
     Total:                                        {total_params:>6} params
+
+  Reading the diagram:
+    A (via A_log) — state decay: how fast the model forgets older tokens
+    B (via B_proj) — input selection: what features get written to state
+    C (via C_proj) — output read: what features get read from state
+    Delta (via dt_proj) — step size: how much of this token to remember
+    D — skip connection: lets the raw input bypass the state entirely
+    h[t] — hidden state: a fixed-size summary of all tokens so far
+
+    "B_proj @ x" means "multiply the B projection by the current input" —
+    this is how B becomes input-dependent (computed fresh at each position).
+    "exp(Delta * A)" converts the continuous decay rate A into a per-step
+    multiplier — larger Delta means faster decay of old state and more room
+    for the new input.
+
+    The Conv1d gives each channel a small (k={d_conv}) window of local
+    context — "look at your immediate neighbors" — before the SSM processes
+    long-range dependencies across the whole sequence.
 
   Compare with the transformer (Lesson 4):
     - Transformer: O(L^2) per layer (attention over all pairs)

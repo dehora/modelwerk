@@ -39,30 +39,82 @@ Matrix = list[list[float]]
 
 @dataclass
 class MambaSSM:
-    """Selective state space model parameters."""
-    A_log: Matrix        # (d_inner, d_state) — log(-A), learned
-    B_proj: Matrix       # (d_state, d_inner)
-    C_proj: Matrix       # (d_state, d_inner)
-    dt_proj_down: Matrix # (dt_rank, d_inner)
-    dt_proj_up: Matrix   # (d_inner, dt_rank)
-    dt_bias: Vector      # (d_inner,)
-    D: Vector            # (d_inner,) — skip connection
+    """Selective state space model parameters.
+
+    A state space model maintains a hidden state h that summarizes the sequence
+    seen so far, updated at each position by the recurrence:
+
+        h[t+1] = A_bar * h[t] + B_bar * x[t]    (state update)
+        y[t]   = C[t] · h[t+1] + D * x[t]       (output read + skip)
+
+    Classical SSMs use fixed A, B, C — they treat every token the same way,
+    which limits them to fixed-spacing patterns (equivalent to convolutions).
+
+    Mamba's key innovation: B, C, and the step size Delta are computed FROM
+    the input at each position. This lets the model decide per-token what to
+    write into state, what to read out, and how strongly to gate the update.
+    This is what "selective" means — the model selects what to remember.
+    """
+    A_log: Matrix        # (d_inner, d_state) — controls state decay: how fast
+                         # the model forgets older tokens. Stored as log(n+1) so
+                         # A = -exp(A_log) stays negative (stable, decaying).
+    B_proj: Matrix       # (d_state, d_inner) — input selection ("write gate"):
+                         # projects the current input to B, controlling what
+                         # features get written into hidden state.
+    C_proj: Matrix       # (d_state, d_inner) — output read ("read head"):
+                         # projects the current input to C, controlling what
+                         # features get read back from hidden state.
+    dt_proj_down: Matrix # (dt_rank, d_inner) — first half of the Delta bottleneck.
+                         # Delta is the discretization step size — the "volume knob"
+                         # controlling how much of the current input to write into
+                         # state. Large Delta = "remember this token." Small Delta =
+                         # "skip it." The bottleneck (d_inner -> dt_rank -> d_inner)
+                         # reduces parameter count.
+    dt_proj_up: Matrix   # (d_inner, dt_rank) — second half of the Delta bottleneck.
+    dt_bias: Vector      # (d_inner,) — bias added before softplus, sets the
+                         # baseline gating sensitivity for each channel.
+    D: Vector            # (d_inner,) — skip connection: lets the current input
+                         # contribute directly to the output, bypassing the state.
 
 
 @dataclass
 class MambaBlock:
-    """Single Mamba block with conv, SSM, and gating."""
-    in_proj: Matrix      # (2*d_inner, d_model)
-    conv_weight: Matrix  # (d_inner, d_conv) — depthwise kernels
+    """Single Mamba block: two branches, local convolution, SSM, and gating.
+
+    The input is projected into two parallel branches of width d_inner:
+
+      x_branch: Conv1d → SiLU → Selective SSM  (content processing)
+      z_branch: SiLU                            (learned gate)
+
+    The output is their element-wise product: SSM_output * SiLU(z_branch).
+    Gating lets the network suppress or amplify individual channels — the
+    z_branch sees the same input but skips the SSM, so it learns a
+    complementary signal about which channels are useful for each token.
+
+    The depthwise Conv1d gives each channel a small window (k=4) of local
+    context — "look at your immediate neighbors" — before the SSM processes
+    long-range dependencies across the whole sequence.
+    """
+    in_proj: Matrix      # (2*d_inner, d_model) — projects input into both
+                         # branches at once. First d_inner rows = x_branch,
+                         # remaining d_inner rows = z_branch.
+    conv_weight: Matrix  # (d_inner, d_conv) — depthwise conv kernels: each
+                         # channel has its own small kernel for local context.
     conv_bias: Vector    # (d_inner,)
     ssm: MambaSSM
-    out_proj: Matrix     # (d_model, d_inner)
+    out_proj: Matrix     # (d_model, d_inner) — projects gated output back
+                         # to d_model for the LM head.
     out_proj_bias: Vector
 
 
 @dataclass
 class MambaLM:
-    """Complete Mamba language model."""
+    """Complete Mamba language model.
+
+    Pipeline: token embedding → single Mamba block → LM head (logits → softmax).
+    Production Mamba stacks many blocks with layer norms between them; we use
+    one block to keep the implementation transparent.
+    """
     embedding: Matrix    # (vocab_size, d_model)
     block: MambaBlock
     head: Matrix         # (vocab_size, d_model)
@@ -219,7 +271,14 @@ def mamba_forward(model: MambaLM, token_ids: list[int]) -> tuple[list[Vector], M
     for t in range(L):
         conv_silu_list.append([silu(conv_out_list[t][d]) for d in range(d_inner)])
 
-    # 5. Input-dependent SSM params
+    # 5. Input-dependent SSM parameters — Mamba's key innovation.
+    # Classical SSMs use fixed B, C — every token is processed the same way.
+    # Mamba computes B, C, and Delta FROM the current input x[t]:
+    #   B_t = B_proj @ x[t]  -> what to write depends on what we're seeing
+    #   C_t = C_proj @ x[t]  -> what to read depends on what we're seeing
+    #   Delta_t = softplus(up(down(x[t])) + bias) -> how much to write
+    # This breaks time-invariance: the model can treat data tokens differently
+    # from blanks, even though it has no explicit "if data_token" logic.
     B_t_list = []
     C_t_list = []
     dt_down_list = []
@@ -240,6 +299,19 @@ def mamba_forward(model: MambaLM, token_ids: list[int]) -> tuple[list[Vector], M
         delta_list.append(delta)
 
     # 6. Discretize and 7. Selective scan
+    #
+    # Discretization converts the continuous-time SSM (dh/dt = A*h + B*x) into
+    # discrete step-by-step updates we can run on a sequence of tokens:
+    #   A_bar = exp(Delta * A)  — state decay per step. When Delta is small,
+    #     A_bar ≈ 1 and the state barely changes. When Delta is large, A_bar
+    #     shrinks toward 0 and old state is forgotten, making room for new input.
+    #   B_bar = Delta * B  — input gate, scaled by step size. When Delta is
+    #     large, B_bar is large and the input writes strongly into state.
+    #
+    # The scan then runs the recurrence forward, building up h — a fixed-size
+    # compressed summary of all tokens seen so far. Unlike a transformer's KV
+    # cache (which grows with sequence length), h stays the same size regardless
+    # of how long the sequence is: d_inner * d_state values.
     A_bar_list = []
     B_bar_list = []
     h_states = [matrix.zeros(d_inner, d_state)]  # h[0] = zeros
@@ -250,8 +322,9 @@ def mamba_forward(model: MambaLM, token_ids: list[int]) -> tuple[list[Vector], M
         delta_t = delta_list[t]
         B_t = B_t_list[t]
 
-        # A = -exp(A_log), so Δ*A = -Δ*exp(A_log)
-        # A_bar = exp(Δ*A) = exp(-Δ*exp(A_log))
+        # Discretize: A = -exp(A_log) is the continuous decay rate.
+        # A_bar = exp(Delta * A) converts it to a per-step multiplier.
+        # B_bar = Delta * B scales the input gate by the step size.
         A_bar_t = [[0.0] * d_state for _ in range(d_inner)]
         B_bar_t = [[0.0] * d_state for _ in range(d_inner)]
         for d in range(d_inner):
@@ -263,16 +336,21 @@ def mamba_forward(model: MambaLM, token_ids: list[int]) -> tuple[list[Vector], M
         A_bar_list.append(A_bar_t)
         B_bar_list.append(B_bar_t)
 
-        # Recurrence: h[t+1] = A_bar * h[t] + B_bar * x[t]
+        # Selective scan recurrence: build up h, the running state summary.
+        # h[t+1] = A_bar * h[t]  +  B_bar * x[t]
+        #          ^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^
+        #          old state,        new input,
+        #          decayed           gated in
+        # Each (d, n) pair is an independent memory channel.
         h_prev = h_states[t]
         h_new = [[0.0] * d_state for _ in range(d_inner)]
         for d in range(d_inner):
             for n in range(d_state):
                 h_new[d][n] = A_bar_t[d][n] * h_prev[d][n] + B_bar_t[d][n] * x[d]
-            h_new[d] = h_new[d]
         h_states.append(h_new)
 
-        # Output: y[d] = C · h[d] + D[d] * x[d]
+        # Read from state: C selects what to extract, D provides a direct shortcut.
+        # C was computed from x[t] (step 5), so what gets read is also selective.
         C_t = C_t_list[t]
         y = [0.0] * d_inner
         for d in range(d_inner):
@@ -282,7 +360,10 @@ def mamba_forward(model: MambaLM, token_ids: list[int]) -> tuple[list[Vector], M
             y[d] = c_dot_h + model.block.ssm.D[d] * x[d]
         ssm_out_list.append(y)
 
-    # 8. Gate: gated = ssm_out ⊙ SiLU(z_branch)
+    # 8. Gate: the z_branch learns to suppress or amplify channels.
+    # z_branch saw the same input as x_branch but took a different path (no
+    # conv, no SSM). It learns which channels of the SSM output are useful
+    # for the current input. SiLU allows both positive and negative gating.
     z_gate_list = []
     gated_list = []
     for t in range(L):
@@ -343,6 +424,24 @@ def mamba_backward(model: MambaLM, cache: MambaCache, targets: list[Vector]) -> 
 
     targets: list of one-hot vectors, one per position.
     Returns gradient dict keyed by parameter name.
+
+    The backward pass reverses the forward computation in three stages:
+
+    Stage 1 (per-timestep, forward order): loss → LM head → output projection →
+      gating → SSM output equation. Computes d_ssm_out and d_z_branch per
+      timestep, and accumulates gradients for C_proj, D, and the contribution
+      of x through the output equation.
+
+    Stage 2 (SSM recurrence, REVERSE time order — the hard part): walks backward
+      through time propagating d_h, the gradient of loss w.r.t. hidden state.
+      At each timestep: (a) add the output gradient's contribution to d_h,
+      (b) compute discretization gradients (d_A_log, d_delta, d_B),
+      (c) propagate d_h backward: d_h[t] = d_h[t+1] * A_bar[t].
+      This mirrors how the forward scan propagates h forward.
+
+    Stage 3 (per-timestep, forward order): Delta projection → softplus →
+      conv1d → input projection → embedding. Standard chain rule through
+      linear layers.
     """
     L = len(cache.token_ids)
     d_model = model.d_model
@@ -374,11 +473,11 @@ def mamba_backward(model: MambaLM, cache: MambaCache, targets: list[Vector]) -> 
     d_ssm_out_list = []
     d_z_branch_list = []
     d_conv_silu = [vector.zeros(d_inner) for _ in range(L)]
-    inv_L = 1.0 / L  # loss is averaged over positions
+    loss_scale = 1.0 / L  # loss is averaged over sequence positions
 
     for t in range(L):
         # 10. Loss → probs: softmax + cross-entropy gradient = (probs - target) / L
-        d_logit = [(cache.probs[t][v] - targets[t][v]) * inv_L for v in range(V)]
+        d_logit = [(cache.probs[t][v] - targets[t][v]) * loss_scale for v in range(V)]
 
         # d_head_bias
         for v in range(V):
@@ -446,9 +545,17 @@ def mamba_backward(model: MambaLM, cache: MambaCache, targets: list[Vector]) -> 
                 d_conv_silu[t][d] += model.block.ssm.C_proj[n][d] * d_C_t[n]
 
     # Step 2: Backward through SSM recurrence (reverse time).
-    # d_h is built up incrementally — at each timestep t we first add the
-    # output gradient contribution (d_ssm_out[t] * C[t]), then use d_h to
-    # compute discretization gradients, then propagate d_h backward.
+    #
+    # This mirrors the forward scan but runs backward. d_h tracks how the loss
+    # changes when the hidden state changes. At each timestep we:
+    #   (a) Add the output equation's contribution: since y = C·h + D*x,
+    #       changing h affects y, so d_h += d_y * C.
+    #   (b) Use d_h to compute gradients for A_bar, B_bar, and delta
+    #       (the discretization parameters that shaped this timestep's update).
+    #   (c) Propagate d_h backward: since h[t+1] = A_bar*h[t] + B_bar*x[t],
+    #       the gradient flows through A_bar: d_h[t] = d_h[t+1] * A_bar[t].
+    #       Because A_bar < 1, gradients decay at the same rate as the forward
+    #       signal — this naturally prevents gradient explosion over long sequences.
     d_h = matrix.zeros(d_inner, d_state)
     d_delta_list = [vector.zeros(d_inner) for _ in range(L)]
 
@@ -460,34 +567,35 @@ def mamba_backward(model: MambaLM, cache: MambaCache, targets: list[Vector]) -> 
         C_t = cache.C_t[t]
         d_ssm_out = d_ssm_out_list[t]
 
-        # Add output gradient contribution to d_h for this timestep
-        # y[t] = C[t] · h[t+1] + D*x[t], so d_h[t+1] += d_y[t] ⊗ C[t]
+        # (a) Output gradient contribution to d_h:
+        # y[t] = C[t] · h[t+1] + D*x[t], so d_h[t+1] += d_y[t] * C[t]
         for d in range(d_inner):
             for n in range(d_state):
                 d_h[d][n] += d_ssm_out[d] * C_t[n]
 
-        # Now d_h contains the full gradient w.r.t. h[t+1]
+        # (b) Discretization gradients — reverse of the exp() and multiplication
+        # in forward step 6. We need d_A_bar, d_B_bar to compute d_delta and d_A_log.
         d_B_t = [0.0] * d_state
         for d in range(d_inner):
             for n in range(d_state):
-                # h[t+1] = A_bar*h[t] + B_bar*x[t]
+                # From h[t+1] = A_bar*h[t] + B_bar*x[t]:
                 d_A_bar_dn = d_h[d][n] * h_prev[d][n]
                 d_B_bar_dn = d_h[d][n] * x_t[d]
-                # d_x from B_bar*x
                 d_conv_silu[t][d] += d_h[d][n] * B_bar_t[d][n]
 
-                # Discretization backward
+                # Chain through discretization:
+                # A_bar = exp(Delta * A) → d_Delta += d_A_bar * A_bar * A
                 a_val = -math.exp(model.block.ssm.A_log[d][n])
-                # A_bar = exp(Δ * A) → d_Δ += d_A_bar * A_bar * A
                 d_delta_list[t][d] += d_A_bar_dn * A_bar_t[d][n] * a_val
-                # d_A_log: chain through exp(Δ*A) and A = -exp(A_log)
+                # d_A_log: chain through A = -exp(A_log)
                 d_A_log[d][n] += d_A_bar_dn * A_bar_t[d][n] * cache.delta[t][d] * (-math.exp(model.block.ssm.A_log[d][n]))
 
-                # B_bar = Δ * B[n] → d_Δ += d_B_bar * B[n], d_B[n] += d_B_bar * Δ
+                # B_bar = Delta * B → d_Delta += d_B_bar * B, d_B += d_B_bar * Delta
                 d_delta_list[t][d] += d_B_bar_dn * cache.B_t[t][n]
                 d_B_t[n] += d_B_bar_dn * cache.delta[t][d]
 
-            # Propagate d_h to previous timestep: d_h[t] = d_h[t+1] ⊙ A_bar[t]
+            # (c) Propagate d_h backward through the recurrence:
+            # d_h[t] = d_h[t+1] * A_bar[t] — gradient decays like the forward signal.
             for n in range(d_state):
                 d_h[d][n] = d_h[d][n] * A_bar_t[d][n]
 
