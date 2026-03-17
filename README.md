@@ -4,7 +4,7 @@ Neural networks from scratch, built piece by piece from scalar operations up to 
 
 This is for programmers who want to understand how neural networks work, not use them. If you're looking for a PyTorch tutorial, this isn't it. If you want to know what PyTorch is doing under the hood, read on.
 
-The project follows five landmark papers chronologically, each one building on the previous lesson's code and concepts:
+The project follows six landmark papers chronologically, each one building on the previous lesson's code and concepts:
 
 | Lesson | Paper | Year | Network | Time | Status |
 |--------|-------|------|---------|------|--------|
@@ -12,8 +12,8 @@ The project follows five landmark papers chronologically, each one building on t
 | 02 | Rumelhart, Hinton & Williams, "Learning representations by back-propagating errors" | 1986 | Multi-layer perceptron | ~10s | Done |
 | 03 | LeCun et al., "Gradient-based learning applied to document recognition" | 1998 | LeNet-5 (CNN) | ~3 min | Done |
 | 04 | Vaswani et al., "Attention Is All You Need" | 2017 | Transformer | ~5 min | Done |
-| 05 | Darlow et al., "Continuous Thought Machines" | 2025 | CTM | ~5 min | Done |
-| 06 | Gu & Dao, "Mamba: Linear-Time Sequence Modeling with Selective State Spaces" | 2023 | Mamba | ~5 min | Done |
+| 05 | Gu & Dao, "Mamba: Linear-Time Sequence Modeling with Selective State Spaces" | 2023 | Mamba | ~5 min | Done |
+| 06 | Darlow et al., "Continuous Thought Machines" | 2025 | CTM | ~5 min | Done |
 
 ## Why
 
@@ -63,24 +63,24 @@ Vaswani et al. replaced recurrence with self-attention — each position directl
 uv run python lessons/04_transformer.py
 ```
 
-### Lesson 5: The Continuous Thought Machine (2025)
-
-Darlow et al. reintroduce neural timing as a core computational principle. The CTM gives each neuron its own temporal dynamics via neuron-level models (NLMs) with private weights, and uses neural synchronization — temporal correlations between neurons — as the latent representation. The lesson trains a CTM on the parity task, showing loss decreasing as the model learns to iteratively refine its answer across internal "thought steps."
-
-**Concepts introduced:** internal time dimension, neuron-level models (NLMs), neural synchronization, recursive weighted dot products, certainty-based loss, adaptive compute, backpropagation through time (BPTT), AdamW optimizer, SiLU activation.
-
-```
-uv run python lessons/05_ctm.py
-```
-
-### Lesson 6: Mamba (2023)
+### Lesson 5: Mamba (2023)
 
 Gu & Dao replaced attention with a selective state space model — maintaining a compressed running state that gets updated at each position in O(L) time. The selection mechanism makes B, C, and Delta input-dependent, so the model decides per-token what to remember. The lesson trains Mamba on selective copying, where data tokens appear at random positions and must be recalled in order after a marker.
 
 **Concepts introduced:** state space models, discretization (Euler), input-dependent selection, Delta as a gate, depthwise convolution, causal recurrence, linear-time sequence modeling.
 
 ```
-uv run python lessons/06_mamba.py
+uv run python lessons/05_mamba.py
+```
+
+### Lesson 6: The Continuous Thought Machine (2025)
+
+Darlow et al. reintroduce neural timing as a core computational principle. The CTM gives each neuron its own temporal dynamics via neuron-level models (NLMs) with private weights, and uses neural synchronization — temporal correlations between neurons — as the latent representation. The lesson trains a CTM on the parity task, showing loss decreasing as the model learns to iteratively refine its answer across internal "thought steps."
+
+**Concepts introduced:** internal time dimension, neuron-level models (NLMs), neural synchronization, recursive weighted dot products, certainty-based loss, adaptive compute, backpropagation through time (BPTT), AdamW optimizer, SiLU activation.
+
+```
+uv run python lessons/06_ctm.py
 ```
 
 ## Running
@@ -93,14 +93,14 @@ uv run python lessons/01_perceptron.py    # ~5 seconds
 uv run python lessons/02_mlp.py           # ~10 seconds
 uv run python lessons/03_lenet5.py        # ~3 minutes
 uv run python lessons/04_transformer.py   # ~5 minutes
-uv run python lessons/05_ctm.py          # ~5 minutes
-uv run python lessons/06_mamba.py         # ~5 minutes
+uv run python lessons/05_mamba.py         # ~5 minutes
+uv run python lessons/06_ctm.py          # ~5 minutes
 
 # Run tests
 uv run pytest tests/
 ```
 
-Lessons 1 and 2 run in seconds. Lessons 3–5 take a few minutes each — this is pure Python doing real training, not a demo. If it seems hung, it's not — the progress bar shows where you are.
+Lessons 1 and 2 run in seconds. Lessons 3–6 take a few minutes each — this is pure Python doing real training, not a demo. If it seems hung, it's not — the progress bar shows where you are.
 
 Lessons print narrative text, training output, and decision boundaries to the terminal. Matplotlib plots are saved to `output/`. Annotated transcripts of each lesson are in `examples/` so you can see results without running the code.
 

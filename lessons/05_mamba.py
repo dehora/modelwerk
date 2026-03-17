@@ -1,11 +1,11 @@
-"""Lesson 6: Mamba — Selective State Space Models (Gu & Dao, 2023).
+"""Lesson 5: Mamba — Selective State Space Models (Gu & Dao, 2023).
 
 The transformer attends to all positions at every layer — O(L^2) in
 sequence length. Mamba replaces attention with a selective state space
 model that processes the sequence in O(L), deciding at each position
 what to remember and what to ignore.
 
-Run: uv run python lessons/06_mamba.py
+Run: uv run python lessons/05_mamba.py
 """
 
 import os
@@ -51,7 +51,7 @@ def _count_params(model):
 
 def main():
     print("=" * 60)
-    print("  LESSON 6: MAMBA (SELECTIVE STATE SPACE MODELS)")
+    print("  LESSON 5: MAMBA (SELECTIVE STATE SPACE MODELS)")
     print("  Gu & Dao, 2023")
     print("=" * 60)
 
@@ -249,7 +249,7 @@ patterns like convolutions).
   positions means getting blanks right matters too — the model can't
   just focus on the copy slots.
 
-  AdamW (Lesson 5) adapts per-parameter learning rates, which helps
+  AdamW (Lesson 6) adapts per-parameter learning rates, which helps
   because Mamba has diverse parameter types: the A_log values control
   state decay timescales, Delta biases control gating sensitivity,
   and the projections are standard linear layers.
@@ -366,7 +366,7 @@ patterns like convolutions).
     ax.set_title("Mamba Training Loss (Selective Copying)")
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    loss_path = os.path.join(output_dir, "06_mamba_training.png")
+    loss_path = os.path.join(output_dir, "05_mamba_training.png")
     fig.savefig(loss_path, dpi=100)
     plt.close(fig)
     print(f"\n  Saved training loss plot: {loss_path}")
@@ -397,7 +397,7 @@ patterns like convolutions).
                 ax.plot(j, 0, "g^", markersize=6)
 
         fig.tight_layout()
-        delta_path = os.path.join(output_dir, "06_mamba_delta.png")
+        delta_path = os.path.join(output_dir, "05_mamba_delta.png")
         fig.savefig(delta_path, dpi=100)
         plt.close(fig)
         print(f"  Saved delta heatmap: {delta_path}")
@@ -427,7 +427,7 @@ patterns like convolutions).
     axes[-1].set_xlabel("Position")
     fig.suptitle("Selective Copying: Target vs Predicted", fontsize=14)
     fig.tight_layout()
-    pred_path = os.path.join(output_dir, "06_mamba_predictions.png")
+    pred_path = os.path.join(output_dir, "05_mamba_predictions.png")
     fig.savefig(pred_path, dpi=100)
     plt.close(fig)
     print(f"  Saved predictions plot: {pred_path}")
@@ -445,9 +445,9 @@ The progression so far:
   Lesson 3 — LeNet-5 (1998): convolutions learn spatial features
   Lesson 4 — Transformer (2017): attention lets every position
               see every other position — powerful but O(L^2)
-  Lesson 5 — CTM (2025): internal time + neural synchronization
-  Lesson 6 — Mamba (2023): selective state spaces — O(L) with
+  Lesson 5 — Mamba (2023): selective state spaces — O(L) with
               input-dependent gating
+  Lesson 6 — CTM (2025): internal time + neural synchronization
 
 What Mamba introduces:
 
@@ -481,7 +481,7 @@ or exceeds transformers on language modeling, DNA modeling, and audio.
 """)
 
     print(f"{'='*60}")
-    print("  END OF LESSON 6")
+    print("  END OF LESSON 5")
     print(f"{'='*60}")
 
 

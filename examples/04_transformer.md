@@ -252,7 +252,7 @@ The original paper used this architecture for machine translation (encoder-decod
 
 Our 11,408-parameter model on 4 sonnets is the same algorithm. The difference is scale.
 
-Next: we've now built a perceptron, an MLP, a CNN, and a transformer — each one introduced a new architectural idea. But every network so far runs one forward pass per input: simple or hard, it gets the same amount of computation. In Lesson 5 we'll build a Continuous Thought Machine (Darlow et al., 2025) — a network with an internal time dimension where neurons have private temporal dynamics and the network can "think longer" on harder problems.
+Next: we've now built a perceptron, an MLP, a CNN, and a transformer — each one introduced a new architectural idea. The transformer's attention is powerful but O(L²) in sequence length. In Lesson 5 we'll build Mamba (Gu & Dao, 2023) — a selective state space model that processes sequences in O(L) by maintaining a compressed running state and deciding at each position what to remember and what to ignore.
 
 ## Plots
 

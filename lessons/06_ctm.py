@@ -1,10 +1,10 @@
-"""Lesson 5: The Continuous Thought Machine (Darlow et al., 2025).
+"""Lesson 6: The Continuous Thought Machine (Darlow et al., 2025).
 
 Every network we've built so far runs one forward pass per input.
 The CTM introduces an internal time dimension — "thought steps" —
 where the network iterates, refining its answer over multiple ticks.
 
-Run: uv run python lessons/05_ctm.py
+Run: uv run python lessons/06_ctm.py
 """
 
 import os
@@ -53,7 +53,7 @@ def _count_ctm_params(model):
 
 def main():
     print("=" * 60)
-    print("  LESSON 5: THE CONTINUOUS THOUGHT MACHINE")
+    print("  LESSON 6: THE CONTINUOUS THOUGHT MACHINE")
     print("  Darlow, et al., 2025")
     print("=" * 60)
 
@@ -373,7 +373,7 @@ The key innovations:
     ax.set_title("CTM Training Loss (Parity Task)")
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
-    loss_path = os.path.join(output_dir, "05_ctm_training.png")
+    loss_path = os.path.join(output_dir, "06_ctm_training.png")
     fig.savefig(loss_path, dpi=100)
     plt.close(fig)
     print(f"\n  Saved training loss plot: {loss_path}")
@@ -390,7 +390,7 @@ The key innovations:
         ax.set_title("Certainty Over Internal Ticks")
         fig.colorbar(im, ax=ax, label="Certainty")
         fig.tight_layout()
-        cert_path = os.path.join(output_dir, "05_ctm_certainty.png")
+        cert_path = os.path.join(output_dir, "06_ctm_certainty.png")
         fig.savefig(cert_path, dpi=100)
         plt.close(fig)
         print(f"  Saved certainty heatmap: {cert_path}")
@@ -443,7 +443,7 @@ here scales to those larger settings.
 """)
 
     print(f"{'='*60}")
-    print("  END OF LESSON 5")
+    print("  END OF LESSON 6")
     print(f"{'='*60}")
 
 

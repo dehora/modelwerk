@@ -1,4 +1,4 @@
-# Lesson 6: Mamba — Selective State Space Models (Gu & Dao, 2023)
+# Lesson 5: Mamba — Selective State Space Models (Gu & Dao, 2023)
 
 The transformer (Lesson 4) looks at every position to process each token — that's what self-attention does. It works brilliantly, but the cost grows as O(L²) with sequence length. Double the sequence, quadruple the work.
 
@@ -89,7 +89,7 @@ Loss: cross-entropy over all positions (including blanks)
 
 The model must learn to output BLANK at non-output positions and the correct data tokens after the marker. Cross-entropy over all positions means getting blanks right matters too — the model can't just focus on the copy slots.
 
-AdamW (Lesson 5) adapts per-parameter learning rates, which helps because Mamba has diverse parameter types: the A_log values control state decay timescales, Delta biases control gating sensitivity, and the projections are standard linear layers.
+AdamW (Lesson 6) adapts per-parameter learning rates, which helps because Mamba has diverse parameter types: the A_log values control state decay timescales, Delta biases control gating sensitivity, and the projections are standard linear layers.
 
 ### Training results
 
@@ -107,7 +107,7 @@ The training curve is strikingly clean — a smooth, monotonic descent from 0.55
 
 The rapid initial descent (0.55 → 0.08 in 25 epochs) suggests the model quickly learns to predict BLANK at most positions — that's the easy part of the loss. The slower convergence from 0.08 → 0.006 is the model refining its selective copying: learning exactly when to spike Delta, what to write into state, and how to read it back out in the correct order.
 
-![Mamba Training Loss](06_mamba_training.png)
+![Mamba Training Loss](05_mamba_training.png)
 
 ## Part 4: Evaluation
 
@@ -131,7 +131,7 @@ Test results:
 
 The misses are revealing — both are token-order swaps in the first two positions: [2,4] predicted as [4,2], [6,7] predicted as [7,6]. The model captures the right tokens but occasionally gets their order wrong. This makes sense: the 8-dimensional hidden state must encode both token identity and temporal ordering for 4 tokens. When two data tokens have similar spacing relative to the copy marker, the state's position encoding can blur.
 
-![Mamba Predictions](06_mamba_predictions.png)
+![Mamba Predictions](05_mamba_predictions.png)
 
 ## Part 5: Selection in Action
 
@@ -139,7 +139,7 @@ The selection mechanism works through Delta — the discretization step size. Wh
 
 If Mamba learns the task correctly, Delta should spike at data token positions and stay low at blanks. The delta heatmap confirms this directly:
 
-![Delta Heatmap — Selection Mechanism](06_mamba_delta.png)
+![Delta Heatmap — Selection Mechanism](05_mamba_delta.png)
 
 The heatmap shows Delta values across sequence positions for three test samples. Data token positions (marked with cyan triangles) consistently show elevated Delta values, while blank positions stay low. The copy marker (green triangle) gets a moderate Delta — the model notes its presence but doesn't need to write it into the state used for output.
 
@@ -174,8 +174,8 @@ The progression so far:
 | 2 | MLP | 1986 | Hidden layers + backprop solve XOR |
 | 3 | LeNet-5 | 1998 | Convolutions learn spatial features |
 | 4 | Transformer | 2017 | Attention lets every position see every other — O(L²) |
-| 5 | CTM | 2025 | Internal time + neural synchronization |
-| 6 | Mamba | 2023 | Selective state spaces — O(L) with input-dependent gating |
+| 5 | Mamba | 2023 | Selective state spaces — O(L) with input-dependent gating |
+| 6 | CTM | 2025 | Internal time + neural synchronization |
 
 What Mamba introduces:
 

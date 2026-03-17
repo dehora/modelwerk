@@ -1,4 +1,4 @@
-# Lesson 5: The Continuous Thought Machine (Darlow et al., 2025)
+# Lesson 6: The Continuous Thought Machine (Darlow et al., 2025)
 
 Every network we've built so far has the same limitation: given an input, it runs one forward pass and produces one answer. A simple input and a hard input get exactly the same amount of computation. But humans don't work this way — we think longer about harder problems. What if a network could do the same?
 
@@ -146,7 +146,7 @@ Epoch 200: loss=0.4076
 
 The training curve shows the characteristic non-monotonic descent of a CTM learning parity. Loss drops in stages — first breaking out of the initial plateau (~0.69 to ~0.55 around epoch 30), then a longer descent through the 0.4s, reaching a minimum of ~0.27 around epoch 170 before a sharp spike and partial recovery. This spike is typical of recurrent training: the model occasionally hits an unstable gradient configuration, jumps out of its basin, and has to find its way back.
 
-![CTM Training Loss](05_ctm_training.png)
+![CTM Training Loss](06_ctm_training.png)
 
 ## Part 4: Evaluation
 
@@ -174,7 +174,7 @@ The certainty values are low in absolute terms — 0.384 at best for a model get
 
 The certainty heatmap shows how the model's confidence evolves across the 20 internal ticks for each test sample. Brighter colors mean higher certainty.
 
-![Certainty Over Internal Ticks](05_ctm_certainty.png)
+![Certainty Over Internal Ticks](06_ctm_certainty.png)
 
 Several patterns are visible:
 
