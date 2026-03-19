@@ -8,12 +8,12 @@ The project follows six landmark papers chronologically, each one building on th
 
 | Lesson | Paper | Year | Network | Time | Status |
 |--------|-------|------|---------|------|--------|
-| 01 | Rosenblatt, "The Perceptron" | 1958 | Single-layer perceptron | ~5s | Done |
-| 02 | Rumelhart, Hinton & Williams, "Learning representations by back-propagating errors" | 1986 | Multi-layer perceptron | ~10s | Done |
-| 03 | LeCun et al., "Gradient-based learning applied to document recognition" | 1998 | LeNet-5 (CNN) | ~3 min | Done |
-| 04 | Vaswani et al., "Attention Is All You Need" | 2017 | Transformer | ~5 min | Done |
-| 05 | Gu & Dao, "Mamba: Linear-Time Sequence Modeling with Selective State Spaces" | 2023 | Mamba | ~5 min | Done |
-| 06 | Darlow et al., "Continuous Thought Machines" | 2025 | CTM | ~5 min | Done |
+| 01 | Rosenblatt, ["The Perceptron"](https://www.ling.upenn.edu/courses/cogs501/Rosenblatt1958.pdf) | 1958 | Single-layer perceptron | ~5s | Done |
+| 02 | Rumelhart, Hinton & Williams, ["Learning representations by back-propagating errors"](https://gwern.net/doc/ai/nn/1986-rumelhart-2.pdf) | 1986 | Multi-layer perceptron | ~10s | Done |
+| 03 | LeCun et al., ["Gradient-based learning applied to document recognition"](http://vision.stanford.edu/cs598_spring07/papers/Lecun98.pdf) | 1998 | LeNet-5 (CNN) | ~3 min | Done |
+| 04 | Vaswani et al., ["Attention Is All You Need"](https://arxiv.org/pdf/1706.03762) | 2017 | Transformer | ~5 min | Done |
+| 05 | Gu & Dao, ["Mamba: Linear-Time Sequence Modeling with Selective State Spaces"](https://arxiv.org/pdf/2312.00752) | 2023 | Mamba | ~15 min | Done |
+| 06 | Darlow et al., ["Continuous Thought Machines"](https://arxiv.org/pdf/2505.05522) | 2025 | CTM | ~20 min | Done |
 
 ## Writing
 
@@ -98,8 +98,8 @@ uv run python lessons/01_perceptron.py    # ~5 seconds
 uv run python lessons/02_mlp.py           # ~10 seconds
 uv run python lessons/03_lenet5.py        # ~3 minutes
 uv run python lessons/04_transformer.py   # ~5 minutes
-uv run python lessons/05_mamba.py         # ~5 minutes
-uv run python lessons/06_ctm.py          # ~5 minutes
+uv run python lessons/05_mamba.py         # ~15 minutes
+uv run python lessons/06_ctm.py          # ~20 minutes
 
 # Run tests
 uv run pytest tests/
