@@ -15,6 +15,11 @@ The project follows six landmark papers chronologically, each one building on th
 | 05 | Gu & Dao, "Mamba: Linear-Time Sequence Modeling with Selective State Spaces" | 2023 | Mamba | ~5 min | Done |
 | 06 | Darlow et al., "Continuous Thought Machines" | 2025 | CTM | ~5 min | Done |
 
+## Writing
+
+- [Modelwerk: Neural Networks as Machinery](https://dehora.net/journal/2026/modelwerk-neural-networks-as-machinery) — Lessons 1–4. Building four foundational architectures from scalar operations, tracing the hill climb from perceptrons through transformers. What the constraint of pure Python teaches you about softmax, convolution backward, residual connections, and attention.
+- [Modelwerk — Beyond Transformers](https://dehora.net/journal/2026/modelwerk-beyond-transformers) — Lessons 5–6. Two post-transformer models that answer "what comes next?" in opposite ways: Mamba simplifies the mechanism with linear-time selection, the CTM enriches it with internal time and neural synchronization.
+
 ## Why
 
 Most ML tutorials start with `import torch`. This project starts with `1.0 + 1.0`.
