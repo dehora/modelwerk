@@ -28,6 +28,8 @@ Every operation is composed from scalar arithmetic up through vectors, matrices,
 
 ## Lessons
 
+(Annotated transcripts and plots for each lesson are in [`examples/`](examples/).)
+
 ### Lesson 1: The Perceptron (1958)
 
 Rosenblatt's perceptron — a single neuron that learns a linear decision boundary. The lesson trains it on AND, OR, and NAND (which it solves), then XOR (which it can't). This failure motivates everything that follows.

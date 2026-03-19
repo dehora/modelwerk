@@ -282,4 +282,4 @@ Next up: the Transformer (Lesson 4), where we replace spatial structure with att
 
 Loss drops steeply in the first epoch (from random guessing to basic digit recognition), then gradually improves over the remaining epochs. The curve shows the characteristic shape of SGD training: fast initial progress as the network learns broad features (edges, strokes), then slower refinement as it fine-tunes digit-specific patterns. Final accuracy reaches ~90% on the test set with just 3,968 parameters and 5 epochs.
 
-![LeNet-5 training loss over 5 epochs](03_lenet5_training.png)
+![LeNet-5 training loss over 5 epochs](img/03_lenet5_training.png)

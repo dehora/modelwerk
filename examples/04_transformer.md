@@ -260,10 +260,10 @@ Next: we've now built a perceptron, an MLP, a CNN, and a transformer — each on
 
 Loss drops from ~3.0 (near random over 48 characters: -ln(1/48) = 3.87) to ~1.4 over 30 epochs. The steep initial descent shows the model quickly learning character frequencies and common bigrams. The flattening curve suggests the model has captured most of the learnable patterns in 4 sonnets — more data or a larger model would be needed to push further.
 
-![Transformer training loss over 30 epochs](04_transformer_training.png)
+![Transformer training loss over 30 epochs](img/04_transformer_training.png)
 
 ### Attention Weights
 
 A heatmap of the attention pattern from the last generation step. Each row shows where that position is looking — brighter cells mean stronger attention. The causal mask is visible as the blank upper triangle (no position can attend to future tokens). Look for patterns: positions often attend strongly to themselves and to nearby characters, but also show longer-range attention to structurally important tokens like spaces and line breaks.
 
-![Attention weights from the last generation step](04_transformer_attention.png)
+![Attention weights from the last generation step](img/04_transformer_attention.png)

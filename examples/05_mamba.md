@@ -107,7 +107,7 @@ The training curve is strikingly clean — a smooth, monotonic descent from 0.55
 
 The rapid initial descent (0.55 → 0.08 in 25 epochs) suggests the model quickly learns to predict BLANK at most positions — that's the easy part of the loss. The slower convergence from 0.08 → 0.006 is the model refining its selective copying: learning exactly when to spike Delta, what to write into state, and how to read it back out in the correct order.
 
-![Mamba Training Loss](05_mamba_training.png)
+![Mamba Training Loss](img/05_mamba_training.png)
 
 ## Part 4: Evaluation
 
@@ -131,7 +131,7 @@ Test results:
 
 The misses are revealing — both are token-order swaps in the first two positions: [2,4] predicted as [4,2], [6,7] predicted as [7,6]. The model captures the right tokens but occasionally gets their order wrong. This makes sense: the 8-dimensional hidden state must encode both token identity and temporal ordering for 4 tokens. When two data tokens have similar spacing relative to the copy marker, the state's position encoding can blur.
 
-![Mamba Predictions](05_mamba_predictions.png)
+![Mamba Predictions](img/05_mamba_predictions.png)
 
 ## Part 5: Selection in Action
 
@@ -139,7 +139,7 @@ The selection mechanism works through Delta — the discretization step size. Wh
 
 If Mamba learns the task correctly, Delta should spike at data token positions and stay low at blanks. The delta heatmap confirms this directly:
 
-![Delta Heatmap — Selection Mechanism](05_mamba_delta.png)
+![Delta Heatmap — Selection Mechanism](img/05_mamba_delta.png)
 
 The heatmap shows Delta values across sequence positions for three test samples. Data token positions (marked with cyan triangles) consistently show elevated Delta values, while blank positions stay low. The copy marker (green triangle) gets a moderate Delta — the model notes its presence but doesn't need to write it into the state used for output.
 
